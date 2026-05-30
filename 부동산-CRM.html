@@ -571,6 +571,7 @@
       <div id="send-hint" style="font-size:11.5px;color:var(--ink-soft);margin-bottom:8px"></div>
       <div id="send-tplbar" style="display:none;margin-bottom:8px"><button class="btn ghost sm" id="send-tpl-btn">📋 승인 템플릿 조회</button><div id="send-tpls" style="display:flex;flex-direction:column;gap:6px;margin-top:7px"></div></div>
       <textarea id="send-msg" class="msgbox" style="min-height:200px"></textarea>
+      <div id="send-vars" style="display:none;margin-top:8px"></div>
       <div id="send-count" style="font-size:11px;color:var(--ink-soft);margin-top:4px;text-align:right"></div>
     </div>
     <div class="modal-f"><button class="btn ghost" data-close>취소</button><button class="btn" id="send-go">📨 발송</button></div>
@@ -1575,11 +1576,23 @@ function sendMsg(provider,kind,c){
   $('#send-msg').value = kind==='sms'? smsTemplate(c) : alimTemplate(c);
   if($('#send-tplbar')) $('#send-tplbar').style.display = (kind==='alim')?'':'none';
   if($('#send-tpls')) $('#send-tpls').innerHTML='';
+  if($('#send-vars')){ $('#send-vars').style.display='none'; $('#send-vars').innerHTML=''; }
   if(sendCtx) sendCtx.templateId=null;
   updateSendCount();
   openOv('ov-send');
 }
 function fillTemplateVars(text,c){ return String(text||'').replace(/#\{\s*(이름|고객명|성함|수신자명|성명)\s*\}/g, c.name||'').replace(/#\{\s*(연락처|전화번호)\s*\}/g, fmtPhone(c.phone)); }
+function renderVars(content){
+  const box=$('#send-vars'); if(!box)return;
+  const vars=[...new Set(String(content||'').match(/#\{[^}]+\}/g)||[])];
+  if(!vars.length){ box.style.display='none'; box.innerHTML=''; return; }
+  const c=(sendCtx&&sendCtx.c)||{};
+  box.style.display='';
+  box.innerHTML='<div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:5px">템플릿 변수 입력(빈칸은 안내 미정으로 발송)</div>'+vars.map(v=>{
+    const def=/고객명|이름|성함|수신자|성명/.test(v)?(c.name||''):'';
+    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px"><label style="font-size:12px;min-width:96px;color:var(--brand)">'+esc(v)+'</label><input data-var="'+esc(v)+'" value="'+esc(def)+'" style="flex:1;min-width:0"></div>';
+  }).join('');
+}
 async function loadTemplates(){
   const box=$('#send-tpls'); const btn=$('#send-tpl-btn'); if(!box)return;
   const c=sendCtx&&sendCtx.c; const old=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='조회 중…';}
@@ -1594,7 +1607,7 @@ async function loadTemplates(){
       <div style="font-size:12px;color:var(--ink);white-space:pre-wrap;margin-top:4px;line-height:1.4">${esc(t.content||'')}</div>
       <div style="font-size:11px;color:var(--brand);margin-top:5px;font-weight:600">이 내용으로 채우기 →</div></div>`).join('');
     window.__tpls=d.list;
-    $$('#send-tpls .tpl-card').forEach(card=>card.onclick=()=>{ const t=window.__tpls[+card.dataset.ti]; if(t){ $('#send-msg').value=fillTemplateVars(t.content,c||{}); if(sendCtx) sendCtx.templateId=t.code; updateSendCount(); } });
+    $$('#send-tpls .tpl-card').forEach(card=>card.onclick=()=>{ const t=window.__tpls[+card.dataset.ti]; if(t){ $('#send-msg').value=fillTemplateVars(t.content,c||{}); if(sendCtx) sendCtx.templateId=t.code; if(sendCtx&&sendCtx.provider==='solapi') renderVars(t.content); updateSendCount(); } });
   }catch(e){ box.innerHTML='<div style="font-size:12px;color:var(--accent)">네트워크 오류: '+esc(e.message)+'</div>'; }
   finally{ if(btn){btn.disabled=false;btn.textContent=old;} }
 }
@@ -1608,7 +1621,7 @@ if($('#send-go')) $('#send-go').onclick=async()=>{
   try{
     const url = provider==='solapi' ? (kind==='sms'?'/api/solapi-sms':'/api/solapi-alimtalk') : (kind==='sms'?'/api/sms':'/api/alimtalk');
     const payload={receiver:phone,msg,message:msg,recvname:c.name||'',title:'매칭홈',subject:'안내'};
-    if(provider==='solapi'&&kind==='alim'){ payload.variables={'#{이름}':c.name||'','#{고객명}':c.name||''}; if(sendCtx.templateId) payload.templateId=sendCtx.templateId; }
+    if(provider==='solapi'&&kind==='alim'){ const inps=$$('#send-vars [data-var]'); const vars={}; if(inps.length){ inps.forEach(i=>vars[i.dataset.var]=i.value); } else { vars['#{이름}']=c.name||''; vars['#{고객명}']=c.name||''; } payload.variables=vars; if(sendCtx.templateId) payload.templateId=sendCtx.templateId; }
     const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json();
     if(d.ok){ alert((kind==='sms'?'문자':'알림톡')+' 발송 완료'); closeOv(); }
@@ -1885,9 +1898,3 @@ $$('[data-dl]').forEach(b=>b.onclick=()=>exportData(b.dataset.dl));
 $$('[data-up]').forEach(b=>b.onclick=()=>$('#file-'+b.dataset.up).click());
 $('#file-prop').onchange=e=>{if(e.target.files[0])readFile(e.target.files[0],'prop');e.target.value='';};
 $('#file-cust').onchange=e=>{if(e.target.files[0])readFile(e.target.files[0],'cust');e.target.value='';};
-$('#file-task').onchange=e=>{if(e.target.files[0])readFile(e.target.files[0],'task');e.target.value='';};
-
-function save(){ try{ localStorage.setItem('crm_data',JSON.stringify({props,custs,tasks,pid,cid,tid,agency})); }catch(e){} scheduleSync(); }
-function load(){ try{ const d=JSON.parse(localStorage.getItem('crm_data')||'null'); if(d&&Array.isArray(d.props)){ props=d.props;custs=d.custs;tasks=d.tasks;pid=d.pid;cid=d.cid;tid=d.tid; if(d.agency)agency=d.agency; } }catch(e){} }
-/* ============ ☁ 클라우드 동기화 (Supabase) ============ */
-function pPropToDb(p){return{ext_id:String(p.id),code:p.code||null,kind:p.kind||null,deal_type:p.type,status:p.status,name:p.name,area:p.area||null,soje:p.soje||null,jibun:p.jibun||null,floor:p.floor||null,pyeong_type:p.pyeong||null,dong:p.dong||null,size_m2:p.size||null,supply_m2:p.supply||null,price:p.price||null,rent:p.rent||null,rooms:p.rooms||null,baths:p.baths||null,mgmt:p.mgmt||null,heat:p.heat||null,units:p.units||null,build_year:p.buildYear||null,builder:p.builder||null,approve_date:p.approve||null,zone:p.zone||null,use_type:p.useType||null,parking:p.parking||null,biz_now:p.bizNow||null,biz_rec:p.bizRec||n
