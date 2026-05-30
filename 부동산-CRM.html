@@ -156,7 +156,7 @@
   table.cal td.today{background:var(--brand-soft)}
   table.cal td.today .dn{background:var(--brand);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-grid;place-items:center}
   table.cal .dn{font-size:12.5px;font-weight:600;color:var(--ink-soft)}
-  .ev{font-size:11px;padding:3px 7px;border-radius:5px;margin-top:3px;font-weight:500;line-height:1.35;white-space:normal;word-break:break-word;cursor:pointer;transition:.12s}
+  .ev{font-size:12.5px;padding:3px 7px;border-radius:5px;margin-top:3px;font-weight:600;line-height:1.4;white-space:normal;word-break:break-word;overflow-wrap:anywhere;cursor:pointer;transition:.12s}
   .ev:hover{filter:brightness(.95);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
   .ev.move-p{background:var(--brand-soft);color:var(--brand)}
   .ev.move-c{background:var(--blue-soft);color:var(--blue)}
@@ -263,7 +263,7 @@
     .list{max-height:none}
     table.cal td{min-height:54px;padding:3px}
     table.cal .dn{font-size:11px}
-    .ev{font-size:9.5px;padding:2px 5px}
+    .ev{font-size:11px;padding:2px 5px;font-weight:600}
     .cal-top{gap:8px}
     .cal-top .ttl{font-size:15px;min-width:90px}
     .legend{gap:10px;font-size:11px}
@@ -345,7 +345,7 @@
   <section class="view on" id="v-dash">
     <div class="kpis" id="kpis"></div>
     <div class="toolrow">
-      <button class="btn ghost sm" id="nudge">💤 재접촉 넛지</button>
+      <button class="btn ghost sm" id="nudge">💬 재접촉 메시지</button>
       <span style="font-size:12px;color:var(--ink-soft);font-weight:600">데이터:</span>
       <button class="btn ghost sm" data-dl="prop">⬇ 매물 CSV</button>
       <button class="btn ghost sm" data-dl="cust">⬇ 고객 CSV</button>
@@ -494,7 +494,7 @@
   <div class="modal">
     <div class="modal-h"><h3>매물 등록</h3><button data-close>×</button></div>
     <div class="modal-b"><div id="prop-form"></div></div>
-    <div class="modal-f"><button class="btn ghost danger" id="del-prop" style="display:none;margin-right:auto">삭제</button><button class="btn ghost sm" data-snsopen="blog">📝 블로그</button><button class="btn ghost sm" data-snsopen="card">🖼 인스타</button><button class="btn ghost sm" data-snsopen="threads">🧵 쓰레드</button><button class="btn ghost sm" data-snsopen="youtube">🎬 유튜브</button><button class="btn ghost" data-close>취소</button><button class="btn" id="save-prop">저장</button></div>
+    <div class="modal-f" style="flex-wrap:wrap;gap:6px"><button class="btn ghost" data-close style="margin-right:auto">◀ 뒤로</button><button class="btn ghost" data-snsopen="blog" title="네이버 블로그 글" style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 9px;line-height:1.1"><span style="font-size:20px">📝</span><span style="font-size:9.5px">블로그</span></button><button class="btn ghost" data-snsopen="youtube" title="유튜브 대본" style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 9px;line-height:1.1"><span style="font-size:20px">▶️</span><span style="font-size:9.5px">유튜브</span></button><button class="btn ghost" data-snsopen="threads" title="쓰레드" style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 9px;line-height:1.1"><span style="font-size:20px">🧵</span><span style="font-size:9.5px">쓰레드</span></button><button class="btn ghost" data-snsopen="card" title="인스타 카드뉴스" style="display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 9px;line-height:1.1"><span style="font-size:20px">📸</span><span style="font-size:9.5px">인스타</span></button><button class="btn ghost danger" id="del-prop" style="display:none">🗑 삭제</button><button class="btn" id="save-prop">저장</button></div>
   </div>
 </div>
 
@@ -1197,10 +1197,10 @@ function renderProps(){
 }
 function renderCustFilters(){
   const types=[['all','전체'],['sale','매매'],['jeonse','전세'],['rent','월세'],['invest','투자']];
-  const stages=[['all','전체'],[1,'신규문의'],[2,'현장안내'],[3,'계약검토'],[4,'계약'],[5,'사후관리']];
+  const stages=[['all','전체'],[1,'신규문의'],[2,'현장안내'],[3,'계약검토'],[4,'계약'],[5,'사후관리'],['closed','🔚 종료']];
   const _seen=new Set(); const base=custs.filter(c=>{const d=digits(c.phone); if(d&&_seen.has(d))return false; if(d)_seen.add(d); return true;});
-  const tc=k=>k==='all'?base.length:base.filter(c=>c.type===k).length;
-  const sc=k=>k==='all'?base.length:base.filter(c=>String(c.stage)===String(k)).length;
+  const tc=k=>k==='all'?base.filter(c=>!c.closed).length:base.filter(c=>!c.closed&&c.type===k).length;
+  const sc=k=>k==='all'?base.filter(c=>!c.closed).length:k==='closed'?base.filter(c=>c.closed).length:base.filter(c=>!c.closed&&String(c.stage)===String(k)).length;
   $('#cust-filters').innerHTML=
     `<div class="fgrp"><span class="lbl">거래</span>`+types.map(t=>`<button class="fchip ${String(custFilter.type)===String(t[0])?'on':''}" data-ft="${t[0]}">${t[1]} <b>${tc(t[0])}</b></button>`).join('')+`</div>`+
     `<div class="fgrp"><span class="lbl">단계</span>`+stages.map(s=>`<button class="fchip ${String(custFilter.stage)===String(s[0])?'on':''}" data-fs="${s[0]}">${s[1]} <b>${sc(s[0])}</b></button>`).join('')+`</div>`;
@@ -1212,8 +1212,8 @@ function renderCusts(){
   const seenP=new Set();
   let data=custs.filter(c=>{ const d=digits(c.phone); if(d&&seenP.has(d))return false; if(d)seenP.add(d); return true; });
   if(custFilter.type!=='all') data=data.filter(c=>c.type===custFilter.type);
-  if(custFilter.stage==='deal') data=data.filter(c=>c.stage>=3&&c.stage<=4);
-  else if(custFilter.stage!=='all') data=data.filter(c=>String(c.stage)===String(custFilter.stage));
+  if(custFilter.stage==='closed'){ data=data.filter(c=>c.closed); }
+  else { data=data.filter(c=>!c.closed); if(custFilter.stage==='deal') data=data.filter(c=>c.stage>=3&&c.stage<=4); else if(custFilter.stage!=='all') data=data.filter(c=>String(c.stage)===String(custFilter.stage)); }
   if(q) data=data.filter(c=>
     (c.name||'').includes(q)||(c.area||'').includes(q)||(c.note||'').includes(q)||(c.phone||'').includes(q)||
     (qd.length>=2 && digits(c.phone).includes(qd)));
@@ -1221,11 +1221,11 @@ function renderCusts(){
     <div class="row" data-cid="${c.id}">
       <span class="idx">${i+1}</span>
       <div class="main">
-        <div class="title">${typeTag(c.type)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(c.name)}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">종료</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span></div>
+        <div class="title">${typeTag(c.type)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(c.name)}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span></div>
         <div class="meta">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)} · 입주희망 ${fmtD(c.move)||'-'}${c.fund?' · '+esc(c.fund):''}${c.timeline?' · '+esc(c.timeline):''}${c.note?' · '+esc(c.note):''}</div>${(needTags(c).length||leadHot(c))?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}${leadHot(c)?'<span class="lead">🔥 진성</span>':''}</div>`:''}
       </div><div style="text-align:right;display:flex;flex-direction:column;gap:5px;align-items:flex-end">${digits(c.phone)?`<a class="pbtn" href="tel:${digits(c.phone)}" onclick="event.stopPropagation()" title="전화 걸기" style="text-decoration:none">📞 통화</a>`:''}<button class="pbtn" data-cclose="${c.id}" onclick="event.stopPropagation()" title="안내 종료/재개">${c.closed?'↩ 재개':'🔚 종료'}</button><div class="edit-hint">✎ 수정</div></div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>조건에 맞는 고객이 없습니다.</div>';
   $$('#cust-list .row').forEach(r=>r.onclick=()=>fillCust(custs.find(x=>x.id===+r.dataset.cid)));
-  $$('#cust-list [data-cclose]').forEach(b=>b.onclick=ev=>{ev.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.cclose); c.closed=!c.closed; pushHist(c,c.closed?'안내 종료':'안내 재개'); renderAll();});
+  $$('#cust-list [data-cclose]').forEach(b=>b.onclick=ev=>{ev.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.cclose); if(!c.closed){ c.closed=true; c.stageAtClose=c.stage; pushHist(c,'안내 종료 ('+(CSTAGE[c.stage]||'')+' 단계에서)'); } else { c.closed=false; pushHist(c,'안내 재개'); } renderAll();});
 }
 
 const STAGES=[1,2,3,4,5];
@@ -1876,26 +1876,4 @@ $('#kakao-login').onclick=()=>{
   if(typeof Kakao==='undefined'){ alert('카카오 SDK 로드 실패(인터넷 연결을 확인하세요).'); return; }
   try{ if(!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY); }catch(e){ alert('카카오 초기화 실패: '+e.message); return; }
   Kakao.Auth.login({ scope:'profile_nickname,profile_image,account_email',
-    success(){ Kakao.API.request({url:'/v2/user/me',
-      success(res){ const a=res.kakao_account||{}, p=a.profile||{}; enterApp({nickname:p.nickname||'회원',email:a.email||'',phone:a.phone_number||''}); },
-      fail(err){ console.warn('user/me fail',err); enterApp({nickname:'회원',email:'',phone:''}); } }); },
-    fail(err){ alert('카카오 로그인 실패: '+JSON.stringify(err)); } });
-};
-$('#logout').onclick=()=>{
-  try{localStorage.removeItem('crm_auth');}catch(e){}
-  try{ if(typeof Kakao!=='undefined'&&Kakao.Auth&&Kakao.isInitialized()&&Kakao.Auth.getAccessToken&&Kakao.Auth.getAccessToken()) Kakao.Auth.logout(()=>{}); }catch(e){}
-  member=null; $('#member-name').textContent=''; $('#logout').style.display='none';
-  $('#gate').classList.add('show'); document.body.style.overflow='hidden';
-};
-function resumeAuth(){ try{ const a=JSON.parse(localStorage.getItem('crm_auth')||'null'); if(a&&a.nickname){ enterApp(a); return; } }catch(e){} document.body.style.overflow='hidden'; }
-
-function renderAll(){renderKpis();renderCal();renderDash();renderMatchSource();renderMatchResult();renderPropFilters();renderProps();renderCustFilters();renderCusts();renderPipe();renderTasks();save();}
-buildPropForm();
-load();
-renderAll();
-resumeAuth();
-clRefresh();
-if(sbc) cloudInitSync();
-</script>
-</body>
-</html>
+    success(){ Kakao.API.request({url:'/v
