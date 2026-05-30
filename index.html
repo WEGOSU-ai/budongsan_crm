@@ -1183,13 +1183,14 @@ function renderPropFilters(){
   const R=[['all','전체'],['a','5억↓'],['b','5~10억'],['c','10~20억'],['d','20억↑']];
   const S=[['all','전체'],['1','접수'],['2','광고중'],['3','계약진행'],['5','거래완료']];
   const present=presentKinds();
+  const allKinds=present.concat(KINDS.filter(k=>!present.includes(k)));
   const T=[['all','전체'],['sale','매매'],['jeonse','전세'],['rent','월세'],['invest','투자']];
   const tcn=k=>k==='all'?props.length:props.filter(p=>p.type===k).length;
   const pcn=k=>k==='all'?props.length:props.filter(p=>priceBucket(p.price)===k).length;
   const scn=k=>k==='all'?props.length:props.filter(p=>String(p.status)===String(k)).length;
   $('#prop-filters').innerHTML=
     '<div class="fgrp"><span class="lbl">거래</span>'+T.map(t=>`<button class="fchip ${propTypeF===t[0]?'on':''}" data-pt="${t[0]}">${t[1]} <b>${tcn(t[0])}</b></button>`).join('')+'</div>'+
-    '<div class="fgrp"><span class="lbl">종류</span><select id="prop-kind" class="mini" style="min-width:140px"><option value="all">매물종류 ('+props.length+')</option>'+present.map(k=>`<option value="${esc(k)}"${propKindF===k?' selected':''}>${esc(k)} (${props.filter(p=>p.kind===k).length})</option>`).join('')+'</select></div>'+
+    '<div class="fgrp"><span class="lbl">종류</span><select id="prop-kind" class="mini" style="min-width:140px"><option value="all">매물종류 ('+props.length+')</option>'+allKinds.map(k=>`<option value="${esc(k)}"${propKindF===k?' selected':''}>${esc(k)} (${props.filter(p=>p.kind===k).length})</option>`).join('')+'</select></div>'+
     '<div class="fgrp"><span class="lbl">금액</span>'+R.map(r=>`<button class="fchip ${propPriceF===r[0]?'on':''}" data-pp="${r[0]}">${r[1]} <b>${pcn(r[0])}</b></button>`).join('')+'</div>'+
     '<div class="fgrp"><span class="lbl">상태</span>'+S.map(x=>`<button class="fchip ${propStatusF===x[0]?'on':''}" data-ps="${x[0]}">${x[1]} <b>${scn(x[0])}</b></button>`).join('')+'</div>';
   $$('#prop-filters [data-pt]').forEach(b=>b.onclick=()=>{propTypeF=b.dataset.pt;renderPropFilters();renderProps();});
