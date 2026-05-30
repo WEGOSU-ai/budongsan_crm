@@ -11,16 +11,17 @@ function authHeader(){
 export default async function handler(req, res){
   try{
     if(!KEY || !SEC) return res.status(200).json({ ok:false, error:'NO_ENV', message:'환경변수 SOLAPI_API_KEY / SOLAPI_API_SECRET 를 설정하세요.' });
-    const qs = PFID ? ('?pfId=' + encodeURIComponent(PFID) + '&limit=100') : '?limit=100';
-    const r = await fetch('https://api.solapi.com/kakao/v2/templates' + qs, { headers:{ 'Authorization': authHeader() } });
+    const r = await fetch('https://api.solapi.com/kakao/v2/templates?limit=100', { headers:{ 'Authorization': authHeader() } });
     const j = await r.json().catch(()=>({}));
-    const arr = j.templateList || j.list || (Array.isArray(j) ? j : []);
-    const list = (Array.isArray(arr) ? arr : []).map(t => ({
+    const arr = j.templateList || j.list || j.data || (Array.isArray(j) ? j : []);
+    let list = (Array.isArray(arr) ? arr : []).map(t => ({
       code: t.templateId || t.id || '',
       name: t.name || '',
       content: t.content || '',
-      status: t.status || t.inspectionStatus || ''
+      status: t.status || t.inspectionStatus || '',
+      pfId: t.pfId || t.channelId || ''
     }));
+    if(PFID){ const f = list.filter(t => t.pfId === PFID); if(f.length) list = f; }
     return res.status(200).json({ ok: list.length > 0, count: list.length, list, raw: j });
   }catch(e){ return res.status(200).json({ ok:false, error:'EXCEPTION', message:String(e && e.message || e) }); }
 }
