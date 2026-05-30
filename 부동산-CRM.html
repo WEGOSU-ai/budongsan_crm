@@ -423,6 +423,7 @@
           <div class="fgrp" id="match-type-chips"></div>
           <div class="fgrp" id="match-kind-row" style="display:none"></div>
         </div>
+        <div id="src-tools" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:2px 0 8px"><div id="src-sort" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;flex:1;min-width:0"></div><button class="btn ghost sm" id="src-dl">⬇ 엑셀</button></div>
         <div class="list" id="src-list"></div>
       </div>
       <div class="panel" id="match-panel"></div>
@@ -675,7 +676,7 @@ let propPriceF='all', propStatusF='all', propKindF='all', propTypeF='all';
 let pipeFilter='all';
 let matchSrc={q:'',type:'all',kind:'all'};
 let dashType='all', dashSort='desc', dashTaskQ='';
-let propSort={key:'reg',dir:'desc'}, custSort={key:'inq',dir:'desc'}, showDoneTasks=false, pipeStage=1;
+let propSort={key:'reg',dir:'desc'}, custSort={key:'inq',dir:'desc'}, showDoneTasks=false, pipeStage=1, srcSort={key:'name',dir:'asc'};
 function cmpVal(x,y){ if(typeof x==='number'&&typeof y==='number') return x-y; x=String(x==null?'':x); y=String(y==null?'':y); return x<y?-1:x>y?1:0; }
 function applySort(data,s,getters){ const g=getters[s.key]; if(!g) return data; const a=[...data].sort((p,q)=>cmpVal(g(p),g(q))); if(s.dir==='desc') a.reverse(); return a; }
 let lastMatch=null, maskOn=false;
@@ -1030,6 +1031,8 @@ function renderDash(){
 
 function renderMatchSource(){
   const isProp=matchMode==='prop';
+  const SG=isProp?{name:p=>p.name||'',area:p=>p.area||'',price:p=>+p.price||0,size:p=>+p.size||0,type:p=>TYPE[p.type]||'',kind:p=>p.kind||'',floor:p=>p.floor||'',status:p=>+p.status||0,reg:p=>p.reg||''}:{name:c=>c.name||'',area:c=>c.area||'',min:c=>+c.min||0,size:c=>+c.size||0,stage:c=>+c.stage||0,type:c=>TYPE[c.type]||''};
+  const SKEYS=isProp?[['name','단지명'],['area','지역'],['price','금액'],['size','면적'],['type','거래'],['kind','종류'],['status','상태'],['reg','등록일']]:[['name','이름'],['area','지역'],['min','예산'],['size','평형'],['stage','단계'],['type','거래']];
   $('#src-title').textContent=isProp?'매물 목록':'고객 목록';
   $('#match-mode-label').textContent=isProp
     ?'매물을 선택하면 조건 맞는 고객을 점수순으로 보여줍니다.'
@@ -1051,6 +1054,7 @@ function renderMatchSource(){
     let data=props.filter(p=>(matchSrc.type==='all'||p.type===matchSrc.type)&&(matchSrc.kind==='all'||p.kind===matchSrc.kind));
     if(q) data=data.filter(p=>{const pc=primaryContact(p); const hay=[p.name,p.area,p.note,p.kind,p.code,p.floor,p.dong,pc].map(x=>String(x||'')).join(' '); return hay.includes(q)||(qd.length>=2&&digits(hay).includes(qd));});
     const _sn=new Set(); data=data.filter(p=>{ const k=(p.code&&String(p.code).trim())?('c'+String(p.code).trim()):[p.name,p.area,p.price,p.floor].join('|'); if(_sn.has(k))return false; _sn.add(k); return true; });
+    data=applySort(data,srcSort,SG); window.__srcData=data;
     $('#src-cnt').textContent=data.length;
     list.innerHTML=data.map((p,i)=>`
       <div class="row ${selected&&selected.id===p.id&&matchMode==='prop'?'sel':''}" data-sid="${p.id}">
@@ -1062,6 +1066,7 @@ function renderMatchSource(){
   }else{
     let data=custs.filter(c=>matchSrc.type==='all'||c.type===matchSrc.type);
     if(q) data=data.filter(c=>(c.name||'').includes(q)||(c.area||'').includes(q)||(c.note||'').includes(q)||(c.phone||'').includes(q)||(qd.length>=2&&digits(c.phone).includes(qd)));
+    data=applySort(data,srcSort,SG); window.__srcData=data;
     $('#src-cnt').textContent=data.length;
     list.innerHTML=data.map((c,i)=>`
       <div class="row ${selected&&selected.id===c.id&&matchMode==='cust'?'sel':''}" data-sid="${c.id}">
@@ -1071,11 +1076,23 @@ function renderMatchSource(){
           <div class="meta">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)}</div>
         </div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>해당 고객이 없습니다.</div>';
   }
+  renderSrcSort(SKEYS); if($('#src-dl')) $('#src-dl').onclick=()=>exportSrc(isProp);
   list.querySelectorAll('.row').forEach(r=>r.onclick=()=>{
     const id=+r.dataset.sid;
     selected=(matchMode==='prop'?props:custs).find(x=>x.id===id);
     renderMatchSource(); renderMatchResult();
   });
+}
+function renderSrcSort(keys){
+  const box=$('#src-sort'); if(!box)return;
+  box.innerHTML='<span style="font-size:11px;color:var(--ink-soft);margin-right:2px">정렬</span>'+keys.map(k=>`<button class="fchip ${srcSort.key===k[0]?'on':''}" data-ss="${k[0]}">${k[1]}${srcSort.key===k[0]?(srcSort.dir==='asc'?' ↑':' ↓'):''}</button>`).join('');
+  $$('#src-sort [data-ss]').forEach(b=>b.onclick=()=>{ const k=b.dataset.ss; if(srcSort.key===k) srcSort.dir=srcSort.dir==='asc'?'desc':'asc'; else { srcSort.key=k; srcSort.dir='asc'; } renderMatchSource(); });
+}
+function exportSrc(isProp){
+  const data=window.__srcData||[];
+  if(!data.length) return alert('목록이 비어 있습니다.');
+  if(isProp){ downloadCsv(`매칭_매물목록_${data.length}건_${TODAY}.csv`, PHEAD, data.map(propRow)); }
+  else { downloadCsv(`매칭_고객목록_${data.length}건_${TODAY}.csv`, TPL.cust.head, data.map(c=>[c.name,fmtPhone(c.phone),TYPE[c.type],CSTAGE[c.stage],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note])); }
 }
 function scoreClass(s){ return s>=75?'high':s>=50?'mid':'low'; }
 function renderMatchResult(){
@@ -1272,6 +1289,16 @@ function renderCustSort(){
 
 const STAGES=[1,2,3,4,5];
 function moveStage(id,dir){ const c=custs.find(x=>x.id===id); if(!c)return; c.stage=Math.max(1,Math.min(5,c.stage+dir)); renderAll(); }
+function moveCardOrder(id,dir){
+  const c=custs.find(x=>x.id===id); if(!c)return;
+  const sameIds=custs.filter(x=>x.stage===c.stage&&(pipeFilter==='all'||x.type===pipeFilter)).map(x=>x.id);
+  const pos=sameIds.indexOf(id), npos=pos+dir;
+  if(npos<0||npos>=sameIds.length)return;
+  const otherId=sameIds[npos];
+  const i=custs.findIndex(x=>x.id===id), j=custs.findIndex(x=>x.id===otherId);
+  if(i<0||j<0)return; const t=custs[i]; custs[i]=custs[j]; custs[j]=t;
+  renderAll();
+}
 function gotoCust(id){ const c=custs.find(x=>x.id===id); if(!c)return; custFilter={type:'all',stage:'all'}; switchView('custs'); $('#cust-search').value=c.name; renderCustFilters(); renderCusts(); }
 function renderPipe(){
   const T=[['all','전체'],['sale','매매'],['jeonse','전세'],['rent','월세'],['invest','투자']];
@@ -1296,6 +1323,7 @@ function renderPipe(){
           ${needTags(c).length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}</div>`:''}
           ${c.note?`<div class="dt" style="color:var(--ink)">📝 ${esc(c.note)}</div>`:''}
           <div class="mv"><button data-mv="${c.id}" data-dir="-1" ${s===1?'disabled style=opacity:.3':''}>‹ 이전</button><button data-mv="${c.id}" data-dir="1" ${s===5?'disabled style=opacity:.3':''}>다음 ›</button></div>
+          <div class="mv" style="margin-top:4px"><button data-ord="${c.id}" data-od="-1" ${i===0?'disabled style=opacity:.3':''}>▲ 위로</button><button data-ord="${c.id}" data-od="1" ${i===items.length-1?'disabled style=opacity:.3':''}>▼ 아래로</button></div>
           <button class="pbtn" data-alim="${c.id}" onclick="event.stopPropagation()" style="width:100%;margin-top:5px">💬 솔라피 알림톡</button>
         </div>`).join('')||'<div style="font-size:12px;color:var(--ink-soft);text-align:center;padding:14px 0">비어있음</div>'}</div>
     </div>`;
@@ -1315,6 +1343,7 @@ function renderPipe(){
   });
   $$('[data-mv]').forEach(b=>b.onclick=e=>{e.stopPropagation();moveStage(+b.dataset.mv,+b.dataset.dir);});
   $$('#pipe [data-alim]').forEach(b=>b.onclick=e=>{e.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.alim); if(c) sendMsg('solapi','alim',c,STAGE_TPL[c.stage]); });
+  $$('#pipe [data-ord]').forEach(b=>b.onclick=e=>{e.stopPropagation();moveCardOrder(+b.dataset.ord,+b.dataset.od);});
   $$('#pipe [data-pexp]').forEach(b=>b.onclick=e=>{e.stopPropagation();exportStage(+b.dataset.pexp);});
 }
 function exportStage(s){
@@ -1831,47 +1860,4 @@ function csvRows(text){
   const rows=[]; let i=0,f='',row=[],q=false;
   while(i<text.length){ const ch=text[i];
     if(q){ if(ch==='"'){ if(text[i+1]==='"'){f+='"';i++;} else q=false; } else f+=ch; }
-    else{ if(ch==='"')q=true; else if(ch===','){row.push(f);f='';} else if(ch==='\n'){row.push(f);rows.push(row);row=[];f='';} else f+=ch; }
-    i++;
-  }
-  if(f.length||row.length){row.push(f);rows.push(row);}
-  return rows;
-}
-function readFile(file,kind){
-  const isCsv=/\.csv$/i.test(file.name), rd=new FileReader();
-  rd.onload=e=>{
-    let rows2d=[];
-    if(isCsv){ rows2d=csvRows(e.target.result); }
-    else if(typeof XLSX!=='undefined'){
-      try{ const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
-        wb.SheetNames.forEach(sn=>{ rows2d=rows2d.concat(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''})); rows2d.push([]); }); }
-      catch(err){ alert('엑셀을 읽을 수 없습니다: '+err.message); return; }
-    } else { alert('엑셀(xlsx) 업로드는 인터넷 연결이 필요합니다. CSV로 저장해 올려주세요.'); return; }
-    const objs=rowsToObjs(rows2d);
-    if(!objs.length){ alert('인식할 데이터가 없습니다. 제목(머리글) 행이 있는지 확인하세요.'); return; }
-    importRows(objs,kind);
-  };
-  if(isCsv) rd.readAsText(file,'UTF-8'); else rd.readAsArrayBuffer(file);
-}
-function importRows(rows,kind){
-  const label=kind==='prop'?'매물':kind==='cust'?'고객':'할일';
-  const add=confirm(`제목 매칭으로 ${rows.length}행을 읽었습니다.\n\n[확인] 기존 ${label} 목록에 추가\n[취소] 기존 목록을 교체`);
-  let n=0;
-  if(kind==='prop'){ if(!add) props=[]; rows.forEach(r=>{const o=mapProp(r); if(o){props.push({id:pid++,...o});n++;}}); }
-  else if(kind==='cust'){ if(!add) custs=[]; rows.forEach(r=>{const o=mapCust(r); if(o){custs.push({id:cid++,...o});n++;}}); }
-  else { if(!add) tasks=[]; rows.forEach(r=>{const o=mapTask(r); if(o){tasks.push({id:tid++,...o});n++;}}); }
-  renderAll();
-  const cnt=kind==='prop'?props.length+'개 매물':kind==='cust'?custs.length+'명 고객':tasks.length+'개 할일';
-  alert(`업로드 완료 — ${n}건 인식·반영. 현재 ${cnt}.`);
-}
-
-/* ============ 양식 / 내보내기 / 백업 ============ */
-const PFIELDS=[
- ['매물번호','code'],['부동산종류','kind'],['거래구분','typeK'],['단지·건물명','name'],['법정동','area'],
- ['소재지','soje'],['지번','jibun'],['해당층','floor'],['평형타입','pyeong'],['동명칭','dong'],
- ['전용면적(㎡)','size'],['공급면적(㎡)','supply'],['매매가격(만원)','sale'],['보증금(만원)','deposit'],['월세(만원)','rent'],
- ['방수','rooms'],['욕실수','baths'],['관리비','mgmt'],['난방방식','heat'],['세대수','units'],
- ['건축년도','buildYear'],['건설회사','builder'],['사용승인일','approve'],['용도지역','zone'],['건축물용도','useType'],
- ['총주차대수','parking'],['현재업종','bizNow'],['추천업종','bizRec'],['사용전력','power'],['방향','dir'],
- ['입주가능일','move'],['매도자연락처','sPhone'],['매수자연락처','bPhone'],['임대인연락처','lrPhone'],['임차인연락처','lePhone'],
- ['중개사','agent'],['전화번호','agentPhone'],['핸드폰','mobile'],['아이디','agentId'],['매물특징','
+    else{ if(ch==='"')q=true; else if(ch===','){row.push(f);f='';} else i
