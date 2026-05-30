@@ -635,7 +635,7 @@
       <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px">고객이 번호만 고르면 되도록 정리했습니다. 직접 수정 후 복사하세요.</div>
       <textarea id="msg-text" class="msgbox"></textarea>
     </div>
-    <div class="modal-f"><button class="btn ghost" data-close>닫기</button><button class="btn" id="msg-copy">📋 복사</button></div>
+    <div class="modal-f" style="flex-wrap:wrap;gap:6px"><button class="btn ghost" data-close>닫기</button><button class="btn ghost" id="msg-phone">📱 휴대폰문자</button><button class="btn ghost" id="msg-sol-sms">✉️ 솔라피문자</button><button class="btn ghost" id="msg-sol-alim">💬 솔라피알림톡</button><button class="btn" id="msg-copy">📋 복사</button></div>
   </div>
 </div>
 
@@ -1175,6 +1175,7 @@ function openMsg(){
   if(!lastMatch||!lastMatch.results.length){alert('먼저 매칭 대상을 선택하세요.');return;}
   $('#msg-agency').innerHTML=(agency.name||agency.phone)?('보내는 곳: <b>'+esc(agency.name||'')+'</b> '+esc([agency.owner,agency.phone].filter(Boolean).join(' · '))):'<span style="color:var(--accent)">⚙ 헤더 설정에서 중개사무소 정보를 먼저 등록하면 메시지에 자동 들어갑니다.</span>';
   $('#msg-text').value=buildMsgText();
+  window.__msgCust = lastMatch.mode==='cust' ? lastMatch.sel : (lastMatch.results[0] ? (lastMatch.results[0].c||lastMatch.results[0]) : null);
   openOv('ov-msg');
 }
 
@@ -1429,6 +1430,9 @@ function closeOv(){$$('.ov').forEach(o=>o.classList.remove('show'))}
 $$('[data-close]').forEach(b=>b.onclick=closeOv);
 $$('.ov').forEach(o=>o.onclick=e=>{if(e.target===o)closeOv()});
 $('#msg-copy').onclick=async()=>{ try{ await navigator.clipboard.writeText($('#msg-text').value); alert('메시지를 복사했습니다.'); }catch(e){ $('#msg-text').select(); document.execCommand('copy'); alert('메시지를 복사했습니다.'); } };
+$('#msg-phone').onclick=()=>{ const text=$('#msg-text').value||''; const c=window.__msgCust; const ph=c?digits(c.phone):''; const sep=/(iPhone|iPad|iPod|Macintosh)/.test(navigator.userAgent)?'&':'?'; location.href='sms:'+ph+sep+'body='+encodeURIComponent(text); };
+$('#msg-sol-sms').onclick=async()=>{ const c=window.__msgCust; if(!c||!digits(c.phone)) return alert('수신 고객 연락처를 특정할 수 없습니다.\n고객→매물 모드에서 사용하거나 고객 상세에서 보내세요.'); const text=$('#msg-text').value||''; const btn=$('#msg-sol-sms'); const o=btn.textContent; btn.disabled=true; btn.textContent='발송 중…'; try{ const r=await fetch('/api/solapi-sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver:digits(c.phone),msg:text})}); const d=await r.json(); alert(d.ok?'솔라피 문자 발송 완료':'발송 실패: '+(d.message||d.error||'알 수 없음')); }catch(e){ alert('네트워크 오류: '+e.message); } finally{ btn.disabled=false; btn.textContent=o; } };
+$('#msg-sol-alim').onclick=()=>{ const c=window.__msgCust; if(!c||!digits(c.phone)) return alert('수신 고객 연락처를 특정할 수 없습니다.'); closeOv(); sendMsg('solapi','alim',c); };
 $('#settings').onclick=()=>{ $('#set-name').value=agency.name||''; $('#set-addr').value=agency.addr||''; $('#set-regno').value=agency.regno||''; $('#set-owner').value=agency.owner||''; $('#set-phone').value=agency.phone||''; clRefresh(); openOv('ov-setting'); };
 $('#save-setting').onclick=()=>{ agency.name=$('#set-name').value.trim(); agency.addr=$('#set-addr').value.trim(); agency.regno=$('#set-regno').value.trim(); agency.owner=$('#set-owner').value.trim(); agency.phone=$('#set-phone').value.trim(); save(); closeOv(); alert('중개사무소 정보를 저장했습니다. 블로그 글·메시지에 자동 반영됩니다.'); };
 $('#blog-copy').onclick=async()=>{ try{ await navigator.clipboard.writeText($('#blog-text').value); alert('블로그 글을 복사했습니다.'); }catch(e){ $('#blog-text').select(); document.execCommand('copy'); alert('복사했습니다.'); } };
@@ -1870,25 +1874,4 @@ const PFIELDS=[
  ['건축년도','buildYear'],['건설회사','builder'],['사용승인일','approve'],['용도지역','zone'],['건축물용도','useType'],
  ['총주차대수','parking'],['현재업종','bizNow'],['추천업종','bizRec'],['사용전력','power'],['방향','dir'],
  ['입주가능일','move'],['매도자연락처','sPhone'],['매수자연락처','bPhone'],['임대인연락처','lrPhone'],['임차인연락처','lePhone'],
- ['중개사','agent'],['전화번호','agentPhone'],['핸드폰','mobile'],['아이디','agentId'],['매물특징','note'],['비고','memo'],['매물공개일','reg']
-];
-const PHEAD=PFIELDS.map(f=>f[0]);
-function propRow(p){ return PFIELDS.map(([h,k])=>{
-  if(k==='typeK')return TYPE[p.type]||'';
-  if(k==='sale')return p.type==='sale'?(p.price||''):'';
-  if(k==='deposit')return p.type!=='sale'?(p.price||''):'';
-  if(k==='size')return p.size||'';
-  if(k==='supply')return p.supply||'';
-  if(k==='rent')return p.rent||0;
-  if(['sPhone','bPhone','lrPhone','lePhone','agentPhone','mobile'].includes(k))return fmtPhone(p[k]);
-  return p[k]==null?'':p[k];
-}); }
-const PROP_EX=['','아파트','전세','래미안 109동 1502호','역삼동','','','중층/16층','132A','901동','105','132','','160000','0','4','2','','','','','','','','','','','','','남향','2026-07-01','','','010-1111-2222','','','','','','학세권 역세권 숲세권','','2026-05-06'];
-const TPL={
-  prop:{file:'매물_양식.csv',head:PHEAD,ex:PROP_EX},
-  cust:{file:'고객_양식.csv',head:['이름','연락처','희망거래유형','고객단계','희망지역','예산하한(만원)','예산상한(만원)','희망평형(㎡)','희망월세(만원)','자금조달','이동기한','문의일','입주희망일','메모'],
-        ex:['김민수','010-2222-1111','전세','현장안내','역삼동','55000','66000','84','0','전량 현금','3개월 내 이사','2026-05-18','2026-07-10','직장 강남, 초등 자녀']},
-  task:{file:'할일_양식.csv',head:['내용','마감일','연결고객','연락처'],
-        ex:['김민수님 역삼 래미안 안내 후 피드백 콜','2026-05-30','김민수','010-2222-1111']}
-};
-function dlTpl(kind){ const t=TPL[kind]; downloadCsv(t.f
+ ['중개사','agent'],['전화번호','agentPhone'],['핸드폰','mobile'],['아이디','agentId'],['매물특징','
