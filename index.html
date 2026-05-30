@@ -174,6 +174,7 @@
 
   .pipe{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
   .pcol{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+  .pipe-stagetabs{display:none}
   .pcol-h{padding:11px 14px;font-size:13px;font-weight:700;border-bottom:2px solid var(--line);display:flex;justify-content:space-between;align-items:center}
   .pcol-h .c{font-size:11px;background:#f0ede5;padding:1px 8px;border-radius:20px;font-weight:600}
   .pcol-b{padding:10px;display:flex;flex-direction:column;gap:9px;min-height:100px;flex:1}
@@ -294,6 +295,10 @@
     .row .meta{font-size:12px}
     .match-head .acts{width:100%;margin-top:6px}
     .match-head .acts .btn{flex:1}
+    .pipe-stagetabs{display:flex;flex-wrap:wrap}
+    #pipe{display:block!important}
+    #pipe>.pcol{display:none;margin-bottom:0}
+    #pipe>.pcol.show{display:flex}
   }
   @media(max-width:430px){
     #prop-grid{grid-template-columns:1fr}
@@ -438,7 +443,7 @@
       </div>
     </div>
     <div class="filters" id="prop-filters"></div>
-    <div class="panel"><div class="list" id="prop-list"></div></div>
+    <div class="panel"><div id="prop-sort" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:7px"></div><div class="list" id="prop-list"></div></div>
   </section>
 
   <section class="view" id="v-custs">
@@ -454,7 +459,7 @@
       </div>
     </div>
     <div class="filters" id="cust-filters"></div>
-    <div class="panel"><div class="list" id="cust-list"></div></div>
+    <div class="panel"><div id="cust-sort" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:7px"></div><div class="list" id="cust-list"></div></div>
   </section>
 
   <section class="view" id="v-pipe">
@@ -468,6 +473,7 @@
       <div><h2>할일 · 알림</h2><div class="sub">내용·고객·연락처 검색 · 항목 눌러 수정 · 📅로 구글 캘린더에 추가</div></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <div class="searchbar">🔍<input id="task-search" placeholder="내용·고객·연락처 검색" autocomplete="off"></div>
+        <button class="btn ghost sm" id="task-done-toggle">✓ 완료된 일정</button>
         <button class="btn ghost sm" data-tpl="task">양식</button>
         <button class="btn ghost sm" data-up="task">⬆ 업로드</button>
         <button class="btn ghost sm danger" id="wipe-task">🗑 할일전체삭제</button>
@@ -654,6 +660,9 @@ let propPriceF='all', propStatusF='all', propKindF='all', propTypeF='all';
 let pipeFilter='all';
 let matchSrc={q:'',type:'all',kind:'all'};
 let dashType='all', dashSort='desc', dashTaskQ='';
+let propSort={key:'reg',dir:'desc'}, custSort={key:'inq',dir:'desc'}, showDoneTasks=false, pipeStage=1;
+function cmpVal(x,y){ if(typeof x==='number'&&typeof y==='number') return x-y; x=String(x==null?'':x); y=String(y==null?'':y); return x<y?-1:x>y?1:0; }
+function applySort(data,s,getters){ const g=getters[s.key]; if(!g) return data; const a=[...data].sort((p,q)=>cmpVal(g(p),g(q))); if(s.dir==='desc') a.reverse(); return a; }
 let lastMatch=null, maskOn=false;
 let agency={name:'',addr:'',regno:'',owner:'',phone:''};
 let member=null;
@@ -998,7 +1007,7 @@ function renderDash(){
   $$('#dash-tasks .row').forEach(r=>r.onclick=()=>fillTask(tasks.find(x=>x.id===+r.dataset.tk)));
 
   let rp=props.filter(p=>dashType==='all'||p.type===dashType);
-  rp=rp.sort((a,b)=> dashSort==='desc'? new Date(b.reg||0)-new Date(a.reg||0) : new Date(a.reg||0)-new Date(b.reg||0)).slice(0,8);
+  rp=rp.sort((a,b)=>{ const m=(b.manual?1:0)-(a.manual?1:0); if(m)return m; if(dashSort==='pdesc')return (+b.price||0)-(+a.price||0); if(dashSort==='pasc')return (+a.price||0)-(+b.price||0); if(dashSort==='asc')return new Date(a.reg||0)-new Date(b.reg||0); return new Date(b.reg||0)-new Date(a.reg||0); }).slice(0,8);
   $('#dash-props').innerHTML=rp.map(p=>`
     <div class="row" data-pid="${p.id}"><div class="main"><div class="title" style="font-size:13.5px">${typeTag(p.type)} ${kindBadge(p)} ${nameOpen(p)}</div><div class="meta">${esc(p.area)} · ${p.size}㎡ · 등록 ${fmtD(p.reg)||'-'}</div>${(()=>{const t=topCustsFor(p,2);return t.length?`<div class="meta" style="color:var(--brand)">🎯 추천: ${t.map(x=>mname(x.c.name)+' '+x.s+'%').join(', ')}</div>`:'';})()}</div><div style="text-align:right"><div class="price">${propLabel(p)}</div><div class="edit-hint">✎ 수정</div></div></div>`).join('')||'<div class="empty"><div class="ic">🏢</div>매물이 없습니다.</div>';
   $$('#dash-props .row').forEach(r=>r.onclick=()=>{ switchView('props'); fillProp(props.find(x=>x.id===+r.dataset.pid)); });
@@ -1185,6 +1194,8 @@ function renderProps(){
     const hd=digits(hay);
     return q.split(/\s+/).every(tok=>{ if(!tok)return true; const td=digits(tok); return hay.includes(tok)||(td.length>=2&&hd.includes(td)); });
   });
+  const PG={reg:p=>p.reg||'',price:p=>+p.price||0,size:p=>+p.size||0,name:p=>p.name||'',area:p=>p.area||'',status:p=>+p.status||0,kind:p=>p.kind||'',type:p=>TYPE[p.type]||''};
+  data=applySort(data,propSort,PG); renderPropSort();
   $('#prop-list').innerHTML=data.map((p,i)=>`
     <div class="row" data-pid="${p.id}">
       <span class="idx">${i+1}</span>
@@ -1194,6 +1205,12 @@ function renderProps(){
       </div><div style="text-align:right"><div style="font-size:11px;font-weight:700;color:var(--brand)">${TYPE[p.type]}</div><div class="price">${propLabel(p)}</div><div style="margin-top:5px;display:flex;gap:6px;justify-content:flex-end"><button class="pbtn" data-blog="${p.id}" title="콘텐츠 제작(블로그·인스타·쓰레드·유튜브)" onclick="event.stopPropagation()">📝 콘텐츠 제작</button></div></div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>조건에 맞는 매물이 없습니다.</div>';
   $$('#prop-list .row').forEach(r=>r.onclick=()=>fillProp(props.find(x=>x.id===+r.dataset.pid)));
   $$('#prop-list [data-blog]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();openBlog(props.find(x=>x.id===+b.dataset.blog));});
+}
+function renderPropSort(){
+  const keys=[['reg','등록일'],['price','금액'],['size','면적'],['name','단지명'],['area','지역'],['status','상태'],['kind','종류'],['type','거래']];
+  const box=$('#prop-sort'); if(!box)return;
+  box.innerHTML='<span style="font-size:11px;color:var(--ink-soft);margin-right:2px">정렬</span>'+keys.map(k=>`<button class="fchip ${propSort.key===k[0]?'on':''}" data-ps="${k[0]}">${k[1]}${propSort.key===k[0]?(propSort.dir==='asc'?' ↑':' ↓'):''}</button>`).join('');
+  $$('#prop-sort [data-ps]').forEach(b=>b.onclick=()=>{ const k=b.dataset.ps; if(propSort.key===k) propSort.dir=propSort.dir==='asc'?'desc':'asc'; else { propSort.key=k; propSort.dir='asc'; } renderProps(); });
 }
 function renderCustFilters(){
   const types=[['all','전체'],['sale','매매'],['jeonse','전세'],['rent','월세'],['invest','투자']];
@@ -1217,6 +1234,8 @@ function renderCusts(){
   if(q) data=data.filter(c=>
     (c.name||'').includes(q)||(c.area||'').includes(q)||(c.note||'').includes(q)||(c.phone||'').includes(q)||
     (qd.length>=2 && digits(c.phone).includes(qd)));
+  const CG={inq:c=>custInqDate(c)||'',name:c=>c.name||'',stage:c=>+c.stage||0,type:c=>TYPE[c.type]||'',area:c=>c.area||'',min:c=>+c.min||0,size:c=>+c.size||0,move:c=>c.move||''};
+  data=applySort(data,custSort,CG); renderCustSort();
   $('#cust-list').innerHTML=data.map((c,i)=>`
     <div class="row" data-cid="${c.id}">
       <span class="idx">${i+1}</span>
@@ -1227,6 +1246,12 @@ function renderCusts(){
   $$('#cust-list .row').forEach(r=>r.onclick=()=>fillCust(custs.find(x=>x.id===+r.dataset.cid)));
   $$('#cust-list [data-cclose]').forEach(b=>b.onclick=ev=>{ev.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.cclose); if(!c.closed){ c.closed=true; c.stageAtClose=c.stage; pushHist(c,'안내 종료 ('+(CSTAGE[c.stage]||'')+' 단계에서)'); } else { c.closed=false; pushHist(c,'안내 재개'); } renderAll();});
 }
+function renderCustSort(){
+  const keys=[['inq','문의일'],['name','이름'],['stage','단계'],['type','거래'],['area','지역'],['min','예산'],['size','평형'],['move','입주일']];
+  const box=$('#cust-sort'); if(!box)return;
+  box.innerHTML='<span style="font-size:11px;color:var(--ink-soft);margin-right:2px">정렬</span>'+keys.map(k=>`<button class="fchip ${custSort.key===k[0]?'on':''}" data-cs="${k[0]}">${k[1]}${custSort.key===k[0]?(custSort.dir==='asc'?' ↑':' ↓'):''}</button>`).join('');
+  $$('#cust-sort [data-cs]').forEach(b=>b.onclick=()=>{ const k=b.dataset.cs; if(custSort.key===k) custSort.dir=custSort.dir==='asc'?'desc':'asc'; else { custSort.key=k; custSort.dir='asc'; } renderCusts(); });
+}
 
 const STAGES=[1,2,3,4,5];
 function moveStage(id,dir){ const c=custs.find(x=>x.id===id); if(!c)return; c.stage=Math.max(1,Math.min(5,c.stage+dir)); renderAll(); }
@@ -1234,12 +1259,13 @@ function gotoCust(id){ const c=custs.find(x=>x.id===id); if(!c)return; custFilte
 function renderPipe(){
   const T=[['all','전체'],['sale','매매'],['jeonse','전세'],['rent','월세'],['invest','투자']];
   const _pc=k=>k==='all'?custs.length:custs.filter(c=>c.type===k).length;
-  $('#pipe-filters').innerHTML='<div class="fgrp"><span class="lbl">거래</span>'+T.map(t=>`<button class="fchip ${pipeFilter===t[0]?'on':''}" data-pf2="${t[0]}">${t[1]} <b>${_pc(t[0])}</b></button>`).join('')+'</div>';
+  $('#pipe-filters').innerHTML='<div class="fgrp"><span class="lbl">거래</span>'+T.map(t=>`<button class="fchip ${pipeFilter===t[0]?'on':''}" data-pf2="${t[0]}">${t[1]} <b>${_pc(t[0])}</b></button>`).join('')+'</div>'+'<div class="fgrp pipe-stagetabs"><span class="lbl">단계</span>'+[[1,'신규'],[2,'현장'],[3,'검토'],[4,'계약'],[5,'사후']].map(s=>`<button class="fchip ${pipeStage===s[0]?'on':''}" data-pstage="${s[0]}">${s[1]}</button>`).join('')+'</div>';
   $$('#pipe-filters [data-pf2]').forEach(b=>b.onclick=()=>{pipeFilter=b.dataset.pf2;renderPipe();});
+  $$('#pipe-filters [data-pstage]').forEach(b=>b.onclick=()=>{pipeStage=+b.dataset.pstage;renderPipe();});
   const base=custs.filter(c=>pipeFilter==='all'||c.type===pipeFilter);
   $('#pipe').innerHTML=STAGES.map(s=>{
     const items=base.filter(c=>c.stage===s);
-    return `<div class="pcol" data-stage="${s}">
+    return `<div class="pcol ${pipeStage===s?'show':''}" data-stage="${s}">
       <div class="pcol-h">${CSTAGE[s]}<span class="c">${items.length}</span><button class="btn ghost sm" data-pexp="${s}" title="이 단계만 엑셀(CSV) 추출" style="margin-left:auto;padding:2px 7px">⬇ 엑셀</button></div>
       <div class="pcol-b">${items.map((c,i)=>`
         <div class="pcard" draggable="true" data-cid="${c.id}" title="더블클릭하면 고객 상세로 이동">
@@ -1278,7 +1304,7 @@ function exportStage(s){
 
 function renderTasks(){
   const q=($('#task-search').value||'').trim(), qd=digits(q);
-  let data=[...tasks].sort((a,b)=>new Date(a.due)-new Date(b.due));
+  let data=[...tasks].filter(t=>showDoneTasks?t.done:!t.done).sort((a,b)=>new Date(a.due)-new Date(b.due));
   if(q) data=data.filter(t=>{ const c=t.custId?custs.find(x=>x.id===t.custId):null; const ph=taskPhone(t);
     return (t.desc||'').includes(q)||(c&&(c.name||'').includes(q))||(ph||'').includes(q)||(qd.length>=2&&digits(ph).includes(qd)); });
   $('#task-list').innerHTML=data.map((t,i)=>{
@@ -1318,10 +1344,11 @@ $$('#cal-modes button').forEach(b=>b.onclick=()=>{calMode=b.dataset.cm;renderCal
 $('#prop-search').oninput=renderProps;
 $('#cust-search').oninput=renderCusts;
 $('#task-search').oninput=renderTasks;
+$('#task-done-toggle').onclick=()=>{ showDoneTasks=!showDoneTasks; $('#task-done-toggle').classList.toggle('on',showDoneTasks); $('#task-done-toggle').textContent=showDoneTasks?'↩ 진행중 일정 보기':'✓ 완료된 일정'; renderTasks(); };
 $('#match-search').oninput=e=>{matchSrc.q=e.target.value;renderMatchSource();};
 $('#dash-task-q').oninput=e=>{dashTaskQ=e.target.value;renderDash();};
 $('#dash-type').onchange=e=>{dashType=e.target.value;renderDash();};
-$('#dash-sort').onclick=()=>{dashSort=dashSort==='desc'?'asc':'desc';$('#dash-sort').textContent=dashSort==='desc'?'최신순 ↓':'오래된순 ↑';renderDash();};
+$('#dash-sort').onclick=()=>{ const seq=['desc','asc','pdesc','pasc']; dashSort=seq[(seq.indexOf(dashSort)+1)%4]; const lbl={desc:'최신순 ↓',asc:'오래된순 ↑',pdesc:'금액높은순 ↓',pasc:'금액낮은순 ↑'}; $('#dash-sort').textContent=lbl[dashSort]; renderDash(); };
 
 $('#mask-toggle').onclick=()=>{ maskOn=!maskOn; $('#mask-toggle').classList.toggle('on',maskOn); $('#mask-toggle').innerHTML=maskOn?'🔓 표시':'🔒 가리기'; renderAll(); };
 
@@ -1466,7 +1493,7 @@ $('#save-prop').onclick=()=>{
   if(!data.reg) data.reg = editProp? ((props.find(x=>x.id===editProp)||{}).reg||TODAY) : TODAY;
   Object.assign(data,propContactBuf);
   if(editProp){ Object.assign(props.find(x=>x.id===editProp),data); }
-  else props.push({id:pid++,...data});
+  else props.push({id:pid++,manual:true,...data});
   closeOv(); renderAll();
 };
 $('#del-prop').onclick=()=>{ if(editProp&&confirm('이 매물을 삭제할까요?')){ props=props.filter(x=>x.id!==editProp); closeOv(); renderAll(); } };
@@ -1533,6 +1560,7 @@ $('#save-cust').onclick=()=>{
   const data={name,phone:$('#c-phone').value,type:$('#c-type').value,stage:+$('#c-stage').value,
     area:$('#c-area').value.trim(),min:+digits($('#c-min').value)||0,max:+digits($('#c-max').value)||0,size:+$('#c-size').value||0,
     rent:+$('#c-rent').value||0,fund:$('#c-fund').value,timeline:$('#c-time').value,inq:$('#c-inq').value,move:$('#c-move').value,note:$('#c-note').value.trim()};
+  if(data.type==='rent') data.max=data.min; /* 월세는 보증금 단일화(환산보증금 계산용) */
   if(editCust){ const c=custs.find(x=>x.id===editCust); const ch=custDiff(c,data); Object.assign(c,data); pushHist(c, ch.length?('수정: '+ch.join(', ')):'저장'); }
   else { const c={id:cid++,...data,created:TODAY,closed:false,history:[]}; pushHist(c,'신규 등록'); custs.push(c); }
   closeOv(); renderAll();
