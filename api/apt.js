@@ -120,6 +120,16 @@ export default async function handler(req, res){
     const q = req.query || {};
     if (!KEY) return res.status(200).json({ ok: false, error: 'NO_KEY', message: 'Vercel 환경변수 DATA_GO_KR_KEY가 설정되지 않았습니다.' });
     if (q.op === 'ping') return res.status(200).json({ ok: true, keySet: true });
+    if (q.op === 'debug'){
+      const sgg = q.sgg || '11680', lawd = q.lawd || sgg, ym = q.ym || '202604';
+      const out = {};
+      const tryF = async (label, url) => { try { const r = await fetch(url); const t = await r.text(); out[label] = { status: r.status, head: t.slice(0, 500) }; } catch (e) { out[label] = 'ERR:' + (e && e.message || e); } };
+      await tryF('list_enc', `http://apis.data.go.kr/1611000/AptListService3/getSigunguAptList3?serviceKey=${encodeURIComponent(KEY)}&sigunguCode=${sgg}&numOfRows=3&pageNo=1`);
+      await tryF('list_raw', `http://apis.data.go.kr/1611000/AptListService3/getSigunguAptList3?serviceKey=${KEY}&sigunguCode=${sgg}&numOfRows=3&pageNo=1`);
+      await tryF('rtms_enc', `http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${encodeURIComponent(KEY)}&LAWD_CD=${lawd}&DEAL_YMD=${ym}&numOfRows=3&pageNo=1`);
+      await tryF('rtms_raw', `http://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${KEY}&LAWD_CD=${lawd}&DEAL_YMD=${ym}&numOfRows=3&pageNo=1`);
+      return res.status(200).json({ ok: true, keyLen: KEY.length, debug: out });
+    }
 
     const name = (q.name || '').trim();
     const sgg = (q.sgg || q.lawd || '').trim();
