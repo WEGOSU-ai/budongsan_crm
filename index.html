@@ -1489,10 +1489,25 @@ function renderCustActions(c){
   const box=$('#c-actions'); if(!box)return;
   if(!c){ box.style.display='none'; box.innerHTML=''; return; }
   box.style.display='flex';
-  box.innerHTML='<button class="btn ghost sm" id="ca-msg">💬 안내문구</button><button class="btn ghost sm" id="ca-gcal">📅 구글 일정 추가</button><button class="btn ghost sm" id="ca-vcard">📇 구글 연락처 추가</button>';
+  box.innerHTML='<button class="btn ghost sm" id="ca-msg">💬 안내문구</button><button class="btn ghost sm" id="ca-gcal">📅 구글 일정 추가</button><button class="btn ghost sm" id="ca-vcard">📇 구글 연락처 추가</button><button class="btn ghost sm" id="ca-ktcal">📅 카톡 일정추가</button><button class="btn ghost sm" id="ca-ktnoti">🔔 카톡 알림추가</button>';
   $('#ca-msg').onclick=()=>{ $('#cmsg-text').value=stageMsg(c); openOv('ov-cmsg'); };
   $('#ca-gcal').onclick=()=>{ window.open(gcalLink({desc:(c.name||'고객')+' 팔로업 ('+(CSTAGE[c.stage]||'')+')',due:c.move||TODAY,custId:c.id,time:''}),'_blank','noopener'); };
   $('#ca-vcard').onclick=()=>dlVcard(c);
+  $('#ca-ktcal').onclick=()=>kakaoEnqueue('event',c);
+  $('#ca-ktnoti').onclick=()=>kakaoEnqueue('notify',c);
+}
+async function kakaoEnqueue(kind,c){
+  if(!sbc) return alert('클라우드 기능이 로드되지 않았습니다(인터넷 확인).');
+  let u; try{ u=(await sbc.auth.getUser()).data.user; }catch(e){}
+  if(!u) return alert('먼저 ⚙ 설정의 클라우드에 로그인하세요.\n예약 작업이 큐를 읽어 카카오로 처리합니다.');
+  const row = (kind==='event')
+    ? {kind:'event', title:'[매칭홈] '+(c.name||'고객')+' 팔로업'+(CSTAGE[c.stage]?(' ('+CSTAGE[c.stage]+')'):''), due_date:(c.move||TODAY), due_time:'', phone:c.phone||'', cust_name:c.name||''}
+    : {kind:'notify', body:'[매칭홈] '+(c.name||'고객')+' 고객 팔로업 — '+[TYPE[c.type],c.area,custBudget(c)].filter(Boolean).join('/')+(c.phone?(' / '+c.phone):''), phone:c.phone||'', cust_name:c.name||''};
+  try{
+    const {error}=await sbc.from('kakao_queue').insert(row);
+    if(error) throw error;
+    alert(kind==='event'?'카카오 캘린더 일정추가를 예약했습니다(최대 30분 내 반영).':'카카오 알림 발송을 예약했습니다(최대 30분 내 발송).');
+  }catch(e){ alert('예약 실패: '+(e.message||e)); }
 }
 function fillCust(c){
   editCust=c?c.id:null;
