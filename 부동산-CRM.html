@@ -295,7 +295,6 @@
     .row .meta{font-size:12px}
     .match-head .acts{width:100%;margin-top:6px}
     .match-head .acts .btn{flex:1}
-    .pipe-stagetabs{display:flex;flex-wrap:wrap}
     #pipe{display:block!important}
     #pipe>.pcol{display:none;margin-bottom:0}
     #pipe>.pcol.show{display:flex}
@@ -484,7 +483,7 @@
   </section>
 </main>
 
-<nav class="tabbar">
+<nav class="tabbar" id="tabbar">
   <button class="on" data-v="dash"><span class="ti">🏠</span>대시보드</button>
   <button data-v="match"><span class="ti">🎯</span>매칭</button>
   <button data-v="props"><span class="ti">🏢</span>매물</button>
@@ -1329,11 +1328,25 @@ function renderTasks(){
 
 
 function switchView(v){
-  $$('header nav button, .tabbar button').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
+  $$('header nav button').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
   $$('.view').forEach(s=>s.classList.remove('on'));
   $('#v-'+v).classList.add('on');
   window.scrollTo(0,0);
   curView=v;
+  renderTabbar();
+}
+const NAVITEMS=[['dash','🏠','대시보드'],['match','🎯','매칭'],['props','🏢','매물'],['custs','👥','고객'],['pipe','📊','파이프']];
+const PSTAGES=[[1,'🆕','신규'],[2,'📍','현장'],[3,'📑','검토'],[4,'✍️','계약'],[5,'🤝','사후']];
+function renderTabbar(){
+  const bar=$('#tabbar'); if(!bar)return;
+  if(curView==='pipe'){
+    bar.innerHTML='<button data-home="1"><span class="ti">↩️</span>메뉴</button>'+PSTAGES.map(s=>`<button class="${pipeStage===s[0]?'on':''}" data-ps2="${s[0]}"><span class="ti">${s[1]}</span>${s[2]}</button>`).join('');
+    const hb=bar.querySelector('[data-home]'); if(hb) hb.onclick=()=>switchView('dash');
+    $$('#tabbar [data-ps2]').forEach(b=>b.onclick=()=>{pipeStage=+b.dataset.ps2;renderPipe();renderTabbar();});
+  } else {
+    bar.innerHTML=NAVITEMS.map(n=>`<button class="${curView===n[0]?'on':''}" data-v="${n[0]}"><span class="ti">${n[1]}</span>${n[2]}</button>`).join('');
+    $$('#tabbar [data-v]').forEach(b=>b.onclick=()=>switchView(b.dataset.v));
+  }
 }
 $$('header nav button, .tabbar button').forEach(b=>b.onclick=()=>switchView(b.dataset.v));
 $('#mm-prop').onclick=()=>{matchMode='prop';selected=null;matchSrc.type='all';$('#mm-prop').classList.add('on');$('#mm-cust').classList.remove('on');renderMatchSource();renderMatchResult();};
@@ -1856,15 +1869,4 @@ async function cloudAutoPush(){
     await sbc.from('customers').delete().not('id','is',null);
     if(custs.length){const e=(await sbc.from('customers').insert(custs.map(cToDb))).error; if(e)throw e;}
     if(props.length){const e=(await sbc.from('properties').insert(props.map(pPropToDb))).error; if(e)throw e;}
-    if(tasks.length){const e=(await sbc.from('tasks').insert(tasks.map(tToDb))).error; if(e)throw e;}
-    await sbc.from('agency').upsert({owner_id:u.id,name:agency.name||null,addr:agency.addr||null,regno:agency.regno||null,rep_name:agency.owner||null,phone:agency.phone||null,updated_at:new Date().toISOString()});
-    setSyncBadge('☁ 저장됨 '+hhmm(),'ok');
-  }catch(e){ setSyncBadge('☁ 동기화 실패 — 재시도','err'); _syncing=false; scheduleSync(); return; }
-  _syncing=false;
-}
-async function pullSilent(){
-  const [P,C,T,A]=await Promise.all([sbc.from('properties').select('*'),sbc.from('customers').select('*'),sbc.from('tasks').select('*'),sbc.from('agency').select('*').maybeSingle()]);
-  if(P.error||C.error||T.error)throw (P.error||C.error||T.error);
-  const cmap={}; custs=(C.data||[]).map((r,i)=>{const o=dbToC(r,i+1); cmap[String(r.ext_id)]=o.id; return o;}); cid=custs.length+1;
-  props=(P.data||[]).map((r,i)=>dbToProp(r,i+1)); pid=props.length+1;
-  tasks=(T.data||[]).map((r,i)=>({id:i+1,desc:r.descr||'',du
+    if(tasks.length){const e=(a
