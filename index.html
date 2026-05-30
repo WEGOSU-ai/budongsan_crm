@@ -1573,8 +1573,9 @@ function sendMsg(provider,kind,c){
     ? '문자로 발송됩니다. 90바이트 초과 시 자동 LMS. 내용을 확인·수정 후 발송하세요.'
     : ('알림톡으로 발송됩니다. <b>※ 승인 템플릿과 내용이 일치해야</b> 발송됩니다(변수만 다름).'+(provider==='solapi'?' 솔라피는 템플릿ID·변수로 발송돼 본문은 참고용입니다.':''));
   $('#send-msg').value = kind==='sms'? smsTemplate(c) : alimTemplate(c);
-  if($('#send-tplbar')) $('#send-tplbar').style.display = (provider==='aligo'&&kind==='alim')?'':'none';
+  if($('#send-tplbar')) $('#send-tplbar').style.display = (kind==='alim')?'':'none';
   if($('#send-tpls')) $('#send-tpls').innerHTML='';
+  if(sendCtx) sendCtx.templateId=null;
   updateSendCount();
   openOv('ov-send');
 }
@@ -1584,7 +1585,8 @@ async function loadTemplates(){
   const c=sendCtx&&sendCtx.c; const old=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='조회 중…';}
   box.innerHTML='';
   try{
-    const r=await fetch('/api/templates'); const d=await r.json();
+    const ep=(sendCtx&&sendCtx.provider==='solapi')?'/api/solapi-templates':'/api/templates';
+    const r=await fetch(ep); const d=await r.json();
     if(!d.ok && (!d.list||!d.list.length)){ box.innerHTML='<div style="font-size:12px;color:var(--accent)">조회 실패: '+esc(d.message||d.error||'템플릿 없음')+'</div>'; return; }
     if(!d.list.length){ box.innerHTML='<div style="font-size:12px;color:var(--ink-soft)">등록된 템플릿이 없습니다.</div>'; return; }
     box.innerHTML=d.list.map((t,i)=>`<div class="tpl-card" data-ti="${i}" style="border:1px solid var(--line);border-radius:9px;padding:9px 11px;cursor:pointer;background:var(--card)">
@@ -1592,7 +1594,7 @@ async function loadTemplates(){
       <div style="font-size:12px;color:var(--ink);white-space:pre-wrap;margin-top:4px;line-height:1.4">${esc(t.content||'')}</div>
       <div style="font-size:11px;color:var(--brand);margin-top:5px;font-weight:600">이 내용으로 채우기 →</div></div>`).join('');
     window.__tpls=d.list;
-    $$('#send-tpls .tpl-card').forEach(card=>card.onclick=()=>{ const t=window.__tpls[+card.dataset.ti]; if(t){ $('#send-msg').value=fillTemplateVars(t.content,c||{}); updateSendCount(); } });
+    $$('#send-tpls .tpl-card').forEach(card=>card.onclick=()=>{ const t=window.__tpls[+card.dataset.ti]; if(t){ $('#send-msg').value=fillTemplateVars(t.content,c||{}); if(sendCtx) sendCtx.templateId=t.code; updateSendCount(); } });
   }catch(e){ box.innerHTML='<div style="font-size:12px;color:var(--accent)">네트워크 오류: '+esc(e.message)+'</div>'; }
   finally{ if(btn){btn.disabled=false;btn.textContent=old;} }
 }
@@ -1606,7 +1608,7 @@ if($('#send-go')) $('#send-go').onclick=async()=>{
   try{
     const url = provider==='solapi' ? (kind==='sms'?'/api/solapi-sms':'/api/solapi-alimtalk') : (kind==='sms'?'/api/sms':'/api/alimtalk');
     const payload={receiver:phone,msg,message:msg,recvname:c.name||'',title:'매칭홈',subject:'안내'};
-    if(provider==='solapi'&&kind==='alim') payload.variables={'#{이름}':c.name||'','#{고객명}':c.name||''};
+    if(provider==='solapi'&&kind==='alim'){ payload.variables={'#{이름}':c.name||'','#{고객명}':c.name||''}; if(sendCtx.templateId) payload.templateId=sendCtx.templateId; }
     const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json();
     if(d.ok){ alert((kind==='sms'?'문자':'알림톡')+' 발송 완료'); closeOv(); }
