@@ -2096,7 +2096,7 @@ $('#logout').onclick=()=>{
   member=null; $('#member-name').textContent=''; $('#logout').style.display='none';
   $('#gate').classList.add('show'); document.body.style.overflow='hidden';
 };
-function resumeAuth(){ try{ const a=JSON.parse(localStorage.getItem('crm_auth')||'null'); if(a&&a.nickname){ enterApp(a); return; } }catch(e){} document.body.style.overflow='hidden'; }
+function resumeAuth(){ try{ const a=JSON.parse(localStorage.getItem('crm_auth')||'null'); if(a&&a.nickname){ enterApp(a); return; } }catch(e){} enterApp({nickname:'사용자',email:'',phone:''}); }
 
 function renderAll(){renderKpis();renderCal();renderDash();renderMatchSource();renderMatchResult();renderPropFilters();renderProps();renderCustFilters();renderCusts();renderPipe();renderTasks();save();}
 buildPropForm();
