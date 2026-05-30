@@ -1394,6 +1394,28 @@ function buildPropForm(){
   h+='</div>';
   $('#prop-form').innerHTML=h;
   $('#pf-type').onchange=()=>{ readContactInputs(); renderPropContacts($('#pf-type').value); updatePriceLabels(); };
+  const nf=$('#pf-name'); if(nf&&nf.parentElement&&!$('#pf-aptload')){ const b=document.createElement('button'); b.type='button'; b.id='pf-aptload'; b.className='btn ghost sm'; b.textContent='🔎 단지정보 불러오기'; b.style.marginTop='6px'; b.onclick=loadAptInfo; nf.parentElement.appendChild(b); }
+}
+/* 시군구코드 사전(검증된 값, 필요 시 추가). 동→시군구5자리 */
+const SGG={'강남구':'11680','역삼동':'11680','개포동':'11680','청담동':'11680','삼성동':'11680','대치동':'11680','신사동':'11680','논현동':'11680','압구정동':'11680','세곡동':'11680','자곡동':'11680','율현동':'11680','일원동':'11680','수서동':'11680','도곡동':'11680'};
+async function loadAptInfo(){
+  const name=($('#pf-name').value||'').trim();
+  if(!name) return alert('단지·건물명을 먼저 입력하세요.');
+  let sgg = SGG[($('#pf-area').value||'').trim()] || SGG[($('#pf-soje').value||'').trim()];
+  if(!sgg){ sgg=(prompt('시군구코드(5자리)를 입력하세요. 예) 강남구 = 11680\n(법정동/소재지가 사전에 없을 때만)','')||'').trim(); }
+  if(!/^\d{5}$/.test(sgg||'')) return alert('시군구코드(5자리)가 필요합니다.');
+  const b=$('#pf-aptload'); const old=b?b.textContent:''; if(b){b.disabled=true;b.textContent='조회 중…';}
+  try{
+    const r=await fetch('/api/apt?name='+encodeURIComponent(name)+'&sgg='+sgg);
+    const d=await r.json();
+    if(!d.ok){ alert('조회 실패: '+(d.message||d.error||'알 수 없음')); return; }
+    const set=(k,v)=>{ const el=$('#pf-'+k); if(el&&v){ el.value=v; } };
+    if(d.info){ set('units',d.info.세대수); set('parking',d.info.총주차대수); if(d.info.사용승인일){ set('buildYear',String(d.info.사용승인일).slice(0,4)||d.info.사용승인일);} }
+    if(d.price&&d.price.표시) set('marketPrice',d.price.표시);
+    let msg=(d.matched?('✓ '+d.matched.name+' 반영'):('정확매칭 실패'+(d.candidates&&d.candidates.length?(' — 후보: '+d.candidates.map(c=>c.name).join(', ')):'')))+'\n시세: '+((d.price&&d.price.표시)||'-');
+    alert(msg);
+  }catch(e){ alert('네트워크 오류: '+e.message); }
+  finally{ if(b){b.disabled=false;b.textContent=old;} }
 }
 function readContactInputs(){ ['sPhone','bPhone','lrPhone','lePhone'].forEach(k=>{ const el=$('#pf-'+k); if(el) propContactBuf[k]=el.value.trim(); }); }
 function renderPropContacts(type){
