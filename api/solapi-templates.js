@@ -19,7 +19,11 @@ export default async function handler(req, res){
       name: t.name || '',
       content: t.content || '',
       status: t.status || t.inspectionStatus || '',
-      pfId: t.pfId || t.channelId || ''
+      pfId: t.pfId || t.channelId || '',
+      emphasizeType: t.emphasizeType || 'NONE',
+      emphasizeTitle: t.emphasizeTitle || '',
+      emphasizeSubtitle: t.emphasizeSubtitle || '',
+      buttons: (Array.isArray(t.buttons) ? t.buttons : []).map(b => ({ name: b.buttonName || b.name || '', type: b.buttonType || '' }))
     }));
     if(PFID){ const f = list.filter(t => t.pfId === PFID); if(f.length) list = f; }
     return res.status(200).json({ ok: list.length > 0, count: list.length, list, raw: j });
