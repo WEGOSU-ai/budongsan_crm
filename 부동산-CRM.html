@@ -1291,7 +1291,7 @@ const STAGES=[1,2,3,4,5];
 function moveStage(id,dir){ const c=custs.find(x=>x.id===id); if(!c)return; c.stage=Math.max(1,Math.min(5,c.stage+dir)); renderAll(); }
 function moveCardOrder(id,dir){
   const c=custs.find(x=>x.id===id); if(!c)return;
-  const sameIds=custs.filter(x=>x.stage===c.stage&&(pipeFilter==='all'||x.type===pipeFilter)).map(x=>x.id);
+  const sameIds=custs.filter(x=>(pipeFilter==='all'||x.type===pipeFilter)&&(c.closed?x.closed:(!x.closed&&x.stage===c.stage))).map(x=>x.id);
   const pos=sameIds.indexOf(id), npos=pos+dir;
   if(npos<0||npos>=sameIds.length)return;
   const otherId=sameIds[npos];
@@ -1303,26 +1303,27 @@ function gotoCust(id){ const c=custs.find(x=>x.id===id); if(!c)return; custFilte
 function renderPipe(){
   const T=[['all','전체'],['sale','매매'],['jeonse','전세'],['rent','월세'],['invest','투자']];
   const _pc=k=>k==='all'?custs.length:custs.filter(c=>c.type===k).length;
-  const _sc=st=>custs.filter(c=>(pipeFilter==='all'||c.type===pipeFilter)&&c.stage===st).length;
-  $('#pipe-filters').innerHTML='<div class="fgrp"><span class="lbl">거래</span>'+T.map(t=>`<button class="fchip ${pipeFilter===t[0]?'on':''}" data-pf2="${t[0]}">${t[1]} <b>${_pc(t[0])}</b></button>`).join('')+'</div>'+'<div class="fgrp pipe-stagetabs"><span class="lbl">단계</span>'+[[1,'신규'],[2,'현장'],[3,'검토'],[4,'계약'],[5,'사후']].map(s=>`<button class="fchip ${pipeStage===s[0]?'on':''}" data-pstage="${s[0]}">${s[1]} <b>${_sc(s[0])}</b></button>`).join('')+'</div>'+'<div class="fgrp"><button class="btn ghost sm" id="pipe-dlall">⬇ 파이프라인 전체 다운로드</button></div>';
+  const _sc=st=>custs.filter(c=>(pipeFilter==='all'||c.type===pipeFilter)&&(st==='closed'?c.closed:(!c.closed&&c.stage===st))).length;
+  $('#pipe-filters').innerHTML='<div class="fgrp"><span class="lbl">거래</span>'+T.map(t=>`<button class="fchip ${pipeFilter===t[0]?'on':''}" data-pf2="${t[0]}">${t[1]} <b>${_pc(t[0])}</b></button>`).join('')+'</div>'+'<div class="fgrp pipe-stagetabs"><span class="lbl">단계</span>'+[[1,'신규'],[2,'현장'],[3,'검토'],[4,'계약'],[5,'사후'],['closed','종료']].map(s=>`<button class="fchip ${pipeStage===s[0]?'on':''}" data-pstage="${s[0]}">${s[1]} <b>${_sc(s[0])}</b></button>`).join('')+'</div>'+'<div class="fgrp"><button class="btn ghost sm" id="pipe-dlall">⬇ 파이프라인 전체 다운로드</button></div>';
   $$('#pipe-filters [data-pf2]').forEach(b=>b.onclick=()=>{pipeFilter=b.dataset.pf2;renderPipe();});
-  $$('#pipe-filters [data-pstage]').forEach(b=>b.onclick=()=>{pipeStage=+b.dataset.pstage;renderPipe();});
+  $$('#pipe-filters [data-pstage]').forEach(b=>b.onclick=()=>{pipeStage=b.dataset.pstage==='closed'?'closed':+b.dataset.pstage;renderPipe();});
   if($('#pipe-dlall')) $('#pipe-dlall').onclick=exportPipeAll;
   const base=custs.filter(c=>pipeFilter==='all'||c.type===pipeFilter);
-  $('#pipe').innerHTML=STAGES.map(s=>{
-    const items=base.filter(c=>c.stage===s);
+  const COLS=[[1,CSTAGE[1]],[2,CSTAGE[2]],[3,CSTAGE[3]],[4,CSTAGE[4]],[5,CSTAGE[5]],['closed','🔚 종료']];
+  $('#pipe').innerHTML=COLS.map(co=>{ const s=co[0], label=co[1], isC=s==='closed';
+    const items=isC?base.filter(c=>c.closed):base.filter(c=>!c.closed&&c.stage===s);
     return `<div class="pcol ${pipeStage===s?'show':''}" data-stage="${s}">
-      <div class="pcol-h">${CSTAGE[s]}<span class="c">${items.length}</span><button class="btn ghost sm" data-pexp="${s}" title="이 단계만 엑셀(CSV) 추출" style="margin-left:auto;padding:2px 7px">⬇ 엑셀</button></div>
+      <div class="pcol-h">${label}<span class="c">${items.length}</span><button class="btn ghost sm" data-pexp="${s}" title="이 칸만 엑셀(CSV) 추출" style="margin-left:auto;padding:2px 7px">⬇ 엑셀</button></div>
       <div class="pcol-b">${items.map((c,i)=>`
         <div class="pcard" draggable="true" data-cid="${c.id}" title="더블클릭하면 고객 상세로 이동">
           <div class="nm"><span>${i+1}. ${mname(c.name)}${custInqDate(c)?' ('+fmtYY(custInqDate(c))+')':''}</span><span class="tag ${c.type}">${TYPE[c.type]}</span></div>
           <div class="ph">📞 ${mphone(c.phone)||'-'}</div>
           <div class="dt">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)}</div>
-          <div class="dt">입주희망 ${fmtD(c.move)||'-'} · 단계 ${CSTAGE[c.stage]}${c.closed?' · <span style="color:var(--accent)">종료</span>':''}</div>
+          <div class="dt">입주희망 ${fmtD(c.move)||'-'} · 단계 ${CSTAGE[c.stage]}${c.closed?' · <span style="color:var(--accent)">🔚종료</span>':''}</div>
           ${(c.fund||c.timeline||leadHot(c))?`<div class="dt">${c.fund?'💳 '+esc(c.fund):''}${c.timeline?((c.fund?' · ':'')+esc(c.timeline)):''}${leadHot(c)?' · <span style="color:var(--accent);font-weight:700">🔥진성</span>':''}</div>`:''}
           ${needTags(c).length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}</div>`:''}
           ${c.note?`<div class="dt" style="color:var(--ink)">📝 ${esc(c.note)}</div>`:''}
-          <div class="mv"><button data-mv="${c.id}" data-dir="-1" ${s===1?'disabled style=opacity:.3':''}>‹ 이전</button><button data-mv="${c.id}" data-dir="1" ${s===5?'disabled style=opacity:.3':''}>다음 ›</button></div>
+          <div class="mv">${isC?`<button data-reopen="${c.id}">↩ 재개</button>`:`<button data-mv="${c.id}" data-dir="-1" ${s===1?'disabled style=opacity:.3':''}>‹ 이전</button>${s===5?`<button data-close="${c.id}">🔚 종료</button>`:`<button data-mv="${c.id}" data-dir="1">다음 ›</button>`}`}</div>
           <div class="mv" style="margin-top:4px"><button data-ord="${c.id}" data-od="-1" ${i===0?'disabled style=opacity:.3':''}>▲ 위로</button><button data-ord="${c.id}" data-od="1" ${i===items.length-1?'disabled style=opacity:.3':''}>▼ 아래로</button></div>
           <button class="pbtn" data-alim="${c.id}" onclick="event.stopPropagation()" style="width:100%;margin-top:5px">💬 솔라피 알림톡</button>
         </div>`).join('')||'<div style="font-size:12px;color:var(--ink-soft);text-align:center;padding:14px 0">비어있음</div>'}</div>
@@ -1338,24 +1339,29 @@ function renderPipe(){
     col.ondragover=e=>{e.preventDefault();col.classList.add('over')};
     col.ondragleave=()=>col.classList.remove('over');
     col.ondrop=e=>{e.preventDefault();col.classList.remove('over');
-      const c=custs.find(x=>x.id===dragId); if(c){c.stage=+col.dataset.stage; renderAll();}
+      const c=custs.find(x=>x.id===dragId); if(c){ const dest=col.dataset.stage; if(dest==='closed'){ if(!c.closed){ c.closed=true; c.stageAtClose=c.stage; pushHist(c,'안내 종료 ('+(CSTAGE[c.stage]||'')+' 단계에서)'); } } else { if(c.closed){ c.closed=false; pushHist(c,'안내 재개'); } c.stage=+dest; } renderAll(); }
     };
   });
   $$('[data-mv]').forEach(b=>b.onclick=e=>{e.stopPropagation();moveStage(+b.dataset.mv,+b.dataset.dir);});
+  $$('#pipe [data-close]').forEach(b=>b.onclick=e=>{e.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.close); if(c){ c.closed=true; c.stageAtClose=c.stage; pushHist(c,'안내 종료 ('+(CSTAGE[c.stage]||'')+' 단계에서)'); renderAll(); }});
+  $$('#pipe [data-reopen]').forEach(b=>b.onclick=e=>{e.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.reopen); if(c){ c.closed=false; pushHist(c,'안내 재개'); renderAll(); }});
   $$('#pipe [data-alim]').forEach(b=>b.onclick=e=>{e.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.alim); if(c) sendMsg('solapi','alim',c,STAGE_TPL[c.stage]); });
   $$('#pipe [data-ord]').forEach(b=>b.onclick=e=>{e.stopPropagation();moveCardOrder(+b.dataset.ord,+b.dataset.od);});
-  $$('#pipe [data-pexp]').forEach(b=>b.onclick=e=>{e.stopPropagation();exportStage(+b.dataset.pexp);});
+  $$('#pipe [data-pexp]').forEach(b=>b.onclick=e=>{e.stopPropagation();exportStage(b.dataset.pexp);});
 }
 function exportStage(s){
-  const base=custs.filter(c=>pipeFilter==='all'||c.type===pipeFilter).filter(c=>c.stage===s);
-  if(!base.length) return alert(CSTAGE[s]+' 단계에 고객이 없습니다.');
-  downloadCsv(`파이프라인_${CSTAGE[s]}_${TODAY}.csv`, TPL.cust.head, base.map(c=>[c.name,fmtPhone(c.phone),TYPE[c.type],CSTAGE[c.stage],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note]));
+  const isC=s==='closed'; const sn=+s;
+  const base=custs.filter(c=>pipeFilter==='all'||c.type===pipeFilter).filter(c=> isC?c.closed:(!c.closed&&c.stage===sn) );
+  const label=isC?'종료':CSTAGE[sn];
+  if(!base.length) return alert(label+' 칸에 고객이 없습니다.');
+  downloadCsv(`파이프라인_${label}_${TODAY}.csv`, TPL.cust.head, base.map(c=>[c.name,fmtPhone(c.phone),TYPE[c.type],CSTAGE[c.stage],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note]));
 }
 function exportPipeAll(){
   const base=custs.filter(c=>pipeFilter==='all'||c.type===pipeFilter);
   if(!base.length) return alert('내보낼 고객이 없습니다.');
   const rows=[];
-  STAGES.forEach(s=>base.filter(c=>c.stage===s).forEach(c=>rows.push([CSTAGE[c.stage],c.name,fmtPhone(c.phone),TYPE[c.type],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note])));
+  STAGES.forEach(s=>base.filter(c=>!c.closed&&c.stage===s).forEach(c=>rows.push([CSTAGE[c.stage],c.name,fmtPhone(c.phone),TYPE[c.type],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note])));
+  base.filter(c=>c.closed).forEach(c=>rows.push(['종료('+(CSTAGE[c.stageAtClose||c.stage]||'')+')',c.name,fmtPhone(c.phone),TYPE[c.type],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note])));
   const tag=pipeFilter==='all'?'전체':TYPE[pipeFilter];
   downloadCsv(`파이프라인_${tag}_${rows.length}건_${TODAY}.csv`, ['단계',...TPL.cust.head], rows);
 }
@@ -1395,14 +1401,14 @@ function switchView(v){
   renderTabbar();
 }
 const NAVITEMS=[['dash','🏠','대시보드'],['match','🎯','매칭'],['props','🏢','매물'],['custs','👥','고객'],['pipe','📊','파이프']];
-const PSTAGES=[[1,'🆕','신규'],[2,'📍','현장'],[3,'📑','검토'],[4,'✍️','계약'],[5,'🤝','사후']];
+const PSTAGES=[[1,'🆕','신규'],[2,'📍','현장'],[3,'📑','검토'],[4,'✍️','계약'],[5,'🤝','사후'],['closed','🔚','종료']];
 function renderTabbar(){
   const bar=$('#tabbar'); if(!bar)return;
   if(curView==='pipe'){
-    const _tc=st=>custs.filter(c=>(pipeFilter==='all'||c.type===pipeFilter)&&c.stage===st).length;
+    const _tc=st=>custs.filter(c=>(pipeFilter==='all'||c.type===pipeFilter)&&(st==='closed'?c.closed:(!c.closed&&c.stage===st))).length;
     bar.innerHTML='<button data-home="1"><span class="ti">↩️</span>메뉴</button>'+PSTAGES.map(s=>`<button class="${pipeStage===s[0]?'on':''}" data-ps2="${s[0]}"><span class="ti">${s[1]}</span>${s[2]} ${_tc(s[0])}</button>`).join('');
     const hb=bar.querySelector('[data-home]'); if(hb) hb.onclick=()=>switchView('dash');
-    $$('#tabbar [data-ps2]').forEach(b=>b.onclick=()=>{pipeStage=+b.dataset.ps2;renderPipe();renderTabbar();});
+    $$('#tabbar [data-ps2]').forEach(b=>b.onclick=()=>{pipeStage=b.dataset.ps2==='closed'?'closed':+b.dataset.ps2;renderPipe();renderTabbar();});
   } else {
     bar.innerHTML=NAVITEMS.map(n=>`<button class="${curView===n[0]?'on':''}" data-v="${n[0]}"><span class="ti">${n[1]}</span>${n[2]}</button>`).join('');
     $$('#tabbar [data-v]').forEach(b=>b.onclick=()=>switchView(b.dataset.v));
@@ -1834,30 +1840,4 @@ function mapTask(r){ const desc=String(pick(r,['내용','할일','업무'])).tri
   return {desc,due:toDate(pick(r,['마감','기한','일자','날짜']))||TODAY,time:'',custId:c?c.id:null,phone:String(pick(r,['연락','전화'])).trim(),done:false}; }
 
 const SECTION_KINDS=['아파트','빌라','오피스텔','상가','사무실','공장','창고','지식산업센터','투룸','원룸','단독','다가구','건물','토지'];
-const HEADER_TITLES=['매물번호','거래구분','부동산종류','단지명','법정동','소재지','지번','매매가격','보증금','전용면적','전용/연면적','공급면적','공급/대지면적','평형타입','동명칭','해당층','매물등록일','입주가능일','매물특징','이름','고객명','연락처','내용','마감일','연결고객','예산하한','예산상한','희망지역','희망거래유형','고객단계'];
-function isHeaderRow(cells){
-  const s=cells.map(v=>String(v==null?'':v).trim());
-  if(s.includes('매물번호')||s.includes('이름')||s.includes('고객명')||s.includes('내용')) return true;
-  let n=0; for(const v of s){ if(v&&HEADER_TITLES.includes(v)) n++; } return n>=2;
-}
-function rowsToObjs(rows2d){
-  let header=null, out=[];
-  rows2d.forEach(arr=>{
-    const cells=(arr||[]).map(v=> v==null?'':v);
-    const nonEmpty=cells.filter(v=>String(v).trim()!=='');
-    if(!nonEmpty.length) return;
-    if(isHeaderRow(cells)){ header=cells.map(v=>String(v).trim()); return; }
-    const hasNum=cells.some(v=>/\d{3,}/.test(String(v)));
-    if(nonEmpty.length<=4 && !hasNum) return;
-    if(nonEmpty.length===1) return;
-    if(!header) return;
-    const o={}; header.forEach((h,j)=>{ if(h&&!(h in o)) o[h]=cells[j]; }); out.push(o);
-  });
-  return out;
-}
-function csvRows(text){
-  text=String(text).replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-  const rows=[]; let i=0,f='',row=[],q=false;
-  while(i<text.length){ const ch=text[i];
-    if(q){ if(ch==='"'){ if(text[i+1]==='"'){f+='"';i++;} else q=false; } else f+=ch; }
-    else{ if(ch==='"')q=true; else if(ch===','){row.push(f);f='';} else i
+const HEADER_TITLES=['매물번호','거래구분','부동산종류','단지명','법정동','소재지','지번','매매가격','보
