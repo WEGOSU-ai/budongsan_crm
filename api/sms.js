@@ -24,7 +24,8 @@ export default async function handler(req, res){
     const r = await fetch('https://apis.aligo.in/send/', { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' }, body: form.toString() });
     const j = await r.json().catch(()=>({}));
     const ok = String(j.result_code) === '1';
-    return res.status(200).json({ ok, message: j.message || '', mid: j.msg_id || null, raw: j });
+    let callerIp = null; try{ callerIp = (await (await fetch('https://api.ipify.org?format=json')).json()).ip; }catch(e){}
+    return res.status(200).json({ ok, message: j.message || '', mid: j.msg_id || null, callerIp, raw: j });
   }catch(e){
     return res.status(200).json({ ok:false, error:'EXCEPTION', message:String(e && e.message || e) });
   }
