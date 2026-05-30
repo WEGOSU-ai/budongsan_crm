@@ -433,7 +433,7 @@
         <button class="btn ghost sm" data-tpl="prop">양식</button>
         <button class="btn ghost sm" data-up="prop">⬆ 업로드</button>
         <button class="btn ghost sm" data-dl="prop">⬇ 내보내기</button>
-        <button class="btn ghost sm danger" id="wipe-prop">🗑 매물전체</button>
+        <button class="btn ghost sm danger" id="wipe-prop">🗑 매물전체삭제</button>
         <button class="btn" id="add-prop">+ 매물</button>
       </div>
     </div>
@@ -449,7 +449,7 @@
         <button class="btn ghost sm" data-tpl="cust">양식</button>
         <button class="btn ghost sm" data-up="cust">⬆ 업로드</button>
         <button class="btn ghost sm" data-dl="cust">⬇ 내보내기</button>
-        <button class="btn ghost sm danger" id="wipe-cust">🗑 고객전체</button>
+        <button class="btn ghost sm danger" id="wipe-cust">🗑 고객전체삭제</button>
         <button class="btn" id="add-cust">+ 고객</button>
       </div>
     </div>
@@ -470,7 +470,7 @@
         <div class="searchbar">🔍<input id="task-search" placeholder="내용·고객·연락처 검색" autocomplete="off"></div>
         <button class="btn ghost sm" data-tpl="task">양식</button>
         <button class="btn ghost sm" data-up="task">⬆ 업로드</button>
-        <button class="btn ghost sm danger" id="wipe-task">🗑 할일전체</button>
+        <button class="btn ghost sm danger" id="wipe-task">🗑 할일전체삭제</button>
         <button class="btn" id="add-task">+ 할일</button>
       </div>
     </div>
@@ -748,6 +748,7 @@ function typeTag(t){ return `<span class="tag ${t}">${TYPE[t]||'-'}</span>`; }
 function kindBadge(p){ return p.kind?`<span class="tag kind">${esc(p.kind)}</span>`:''; }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function digits(s){ return String(s||'').replace(/\D/g,''); }
+function fmtPhone(s){ const d=digits(s); if(!d) return ''; if(d.length===11) return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7); if(d.length===10){ if(d.startsWith('02')) return d.slice(0,2)+'-'+d.slice(2,6)+'-'+d.slice(6); return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6); } if(d.length===8) return d.slice(0,4)+'-'+d.slice(4); if(d.length===9&&d.startsWith('02')) return '02-'+d.slice(2,5)+'-'+d.slice(5); return String(s||''); }
 function mphone(p){ if(!maskOn||!p)return p||''; let seen=0; return String(p).split('').reverse().map(ch=>{ if(/\d/.test(ch)){seen++;return seen<=4?ch:'*';} return ch; }).reverse().join(''); }
 function mname(n){ n=String(n==null?'':n); if(maskOn&&n.length>1) n = n.length===2? n[0]+'*' : n[0]+'*'.repeat(n.length-2)+n[n.length-1]; return esc(n); }
 function munit(n){ n=String(n==null?'':n); if(maskOn) n=n.replace(/\d+(?=\s*호)/g,m=>'*'.repeat(Math.min(m.length,4))).replace(/\d+(?=\s*동)/g,m=>'*'.repeat(Math.min(m.length,3))); return esc(n); }
@@ -1222,7 +1223,7 @@ function renderCusts(){
       <div class="main">
         <div class="title">${typeTag(c.type)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(c.name)}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">종료</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span></div>
         <div class="meta">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)} · 입주희망 ${fmtD(c.move)||'-'}${c.fund?' · '+esc(c.fund):''}${c.timeline?' · '+esc(c.timeline):''}${c.note?' · '+esc(c.note):''}</div>${(needTags(c).length||leadHot(c))?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}${leadHot(c)?'<span class="lead">🔥 진성</span>':''}</div>`:''}
-      </div><div style="text-align:right;display:flex;flex-direction:column;gap:5px;align-items:flex-end"><button class="pbtn" data-cclose="${c.id}" onclick="event.stopPropagation()" title="안내 종료/재개">${c.closed?'↩ 재개':'🔚 종료'}</button><div class="edit-hint">✎ 수정</div></div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>조건에 맞는 고객이 없습니다.</div>';
+      </div><div style="text-align:right;display:flex;flex-direction:column;gap:5px;align-items:flex-end">${digits(c.phone)?`<a class="pbtn" href="tel:${digits(c.phone)}" onclick="event.stopPropagation()" title="전화 걸기" style="text-decoration:none">📞 통화</a>`:''}<button class="pbtn" data-cclose="${c.id}" onclick="event.stopPropagation()" title="안내 종료/재개">${c.closed?'↩ 재개':'🔚 종료'}</button><div class="edit-hint">✎ 수정</div></div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>조건에 맞는 고객이 없습니다.</div>';
   $$('#cust-list .row').forEach(r=>r.onclick=()=>fillCust(custs.find(x=>x.id===+r.dataset.cid)));
   $$('#cust-list [data-cclose]').forEach(b=>b.onclick=ev=>{ev.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.cclose); c.closed=!c.closed; pushHist(c,c.closed?'안내 종료':'안내 재개'); renderAll();});
 }
@@ -1239,7 +1240,7 @@ function renderPipe(){
   $('#pipe').innerHTML=STAGES.map(s=>{
     const items=base.filter(c=>c.stage===s);
     return `<div class="pcol" data-stage="${s}">
-      <div class="pcol-h">${CSTAGE[s]}<span class="c">${items.length}</span></div>
+      <div class="pcol-h">${CSTAGE[s]}<span class="c">${items.length}</span><button class="btn ghost sm" data-pexp="${s}" title="이 단계만 엑셀(CSV) 추출" style="margin-left:auto;padding:2px 7px">⬇ 엑셀</button></div>
       <div class="pcol-b">${items.map((c,i)=>`
         <div class="pcard" draggable="true" data-cid="${c.id}" title="더블클릭하면 고객 상세로 이동">
           <div class="nm"><span>${i+1}. ${mname(c.name)}${custInqDate(c)?' ('+fmtYY(custInqDate(c))+')':''}</span><span class="tag ${c.type}">${TYPE[c.type]}</span></div>
@@ -1267,6 +1268,12 @@ function renderPipe(){
     };
   });
   $$('[data-mv]').forEach(b=>b.onclick=e=>{e.stopPropagation();moveStage(+b.dataset.mv,+b.dataset.dir);});
+  $$('#pipe [data-pexp]').forEach(b=>b.onclick=e=>{e.stopPropagation();exportStage(+b.dataset.pexp);});
+}
+function exportStage(s){
+  const base=custs.filter(c=>pipeFilter==='all'||c.type===pipeFilter).filter(c=>c.stage===s);
+  if(!base.length) return alert(CSTAGE[s]+' 단계에 고객이 없습니다.');
+  downloadCsv(`파이프라인_${CSTAGE[s]}_${TODAY}.csv`, TPL.cust.head, base.map(c=>[c.name,fmtPhone(c.phone),TYPE[c.type],CSTAGE[c.stage],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note]));
 }
 
 function renderTasks(){
@@ -1703,6 +1710,7 @@ function propRow(p){ return PFIELDS.map(([h,k])=>{
   if(k==='size')return p.size||'';
   if(k==='supply')return p.supply||'';
   if(k==='rent')return p.rent||0;
+  if(['sPhone','bPhone','lrPhone','lePhone','agentPhone','mobile'].includes(k))return fmtPhone(p[k]);
   return p[k]==null?'':p[k];
 }); }
 const PROP_EX=['','아파트','전세','래미안 109동 1502호','역삼동','','','중층/16층','132A','901동','105','132','','160000','0','4','2','','','','','','','','','','','','','남향','2026-07-01','','','010-1111-2222','','','','','','학세권 역세권 숲세권','','2026-05-06'];
@@ -1716,15 +1724,15 @@ const TPL={
 function dlTpl(kind){ const t=TPL[kind]; downloadCsv(t.file,t.head,[t.ex]); }
 function exportData(kind){
   if(kind==='prop'){ downloadCsv(`매물_${TODAY}.csv`,PHEAD,props.map(propRow)); }
-  else if(kind==='cust'){ downloadCsv(`고객_${TODAY}.csv`,TPL.cust.head,custs.map(c=>[c.name,c.phone,TYPE[c.type],CSTAGE[c.stage],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note])); }
-  else { downloadCsv(`할일_${TODAY}.csv`,TPL.task.head,tasks.map(t=>[t.desc,t.due,(t.custId?(custs.find(x=>x.id===t.custId)||{}).name||'':''),taskPhone(t)])); }
+  else if(kind==='cust'){ downloadCsv(`고객_${TODAY}.csv`,TPL.cust.head,custs.map(c=>[c.name,fmtPhone(c.phone),TYPE[c.type],CSTAGE[c.stage],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note])); }
+  else { downloadCsv(`할일_${TODAY}.csv`,TPL.task.head,tasks.map(t=>[t.desc,t.due,(t.custId?(custs.find(x=>x.id===t.custId)||{}).name||'':''),fmtPhone(taskPhone(t))])); }
 }
 function backupAll(){
   if(typeof XLSX==='undefined'){alert('전체 백업(Excel)은 인터넷 연결이 필요합니다. 개별 CSV로 받아주세요.');return;}
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([PHEAD,...props.map(propRow)]),'매물');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([TPL.cust.head,...custs.map(c=>[c.name,c.phone,TYPE[c.type],CSTAGE[c.stage],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note])]),'고객');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([TPL.task.head,...tasks.map(t=>[t.desc,t.due,(t.custId?(custs.find(x=>x.id===t.custId)||{}).name||'':''),taskPhone(t)])]),'할일');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([TPL.cust.head,...custs.map(c=>[c.name,fmtPhone(c.phone),TYPE[c.type],CSTAGE[c.stage],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note])]),'고객');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([TPL.task.head,...tasks.map(t=>[t.desc,t.due,(t.custId?(custs.find(x=>x.id===t.custId)||{}).name||'':''),fmtPhone(taskPhone(t))])]),'할일');
   XLSX.writeFile(wb,`매칭홈_전체백업_${TODAY}.xlsx`);
 }
 function restoreAll(file){
@@ -1841,4 +1849,53 @@ async function cloudInitSync(){
   if(!u){ _syncUser=null; return; }
   _syncUser=u;
   try{
-    const C=await sbc.from('customers').select('*',{count
+    const C=await sbc.from('customers').select('*',{count:'exact',head:true});
+    const P=await sbc.from('properties').select('*',{count:'exact',head:true});
+    const T=await sbc.from('tasks').select('*',{count:'exact',head:true});
+    const cloudN=(C.count||0)+(P.count||0)+(T.count||0);
+    const localN=props.length+custs.length+tasks.length;
+    if(cloudN>0){ setSyncBadge('☁ 불러오는 중…'); await pullSilent(); setSyncBadge('☁ 저장됨 '+hhmm(),'ok'); }
+    else if(localN>0){ await cloudAutoPush(); }
+    else { setSyncBadge('☁ 연결됨','ok'); }
+  }catch(e){ setSyncBadge('☁ 연결 확인 필요','err'); }
+}
+if($('#cl-signup')) $('#cl-signup').onclick=async()=>{ if(!sbc)return alert('클라우드 사용 불가.'); const em=$('#cl-email').value.trim(),pw=$('#cl-pw').value; if(!em||!pw)return alert('이메일·비밀번호를 입력하세요.'); const {error}=await sbc.auth.signUp({email:em,password:pw}); alert(error?('가입 실패: '+error.message):'가입 요청 완료. (이메일 인증이 켜져 있으면 메일 확인 후) 로그인하세요.'); clRefresh(); };
+if($('#cl-login')) $('#cl-login').onclick=async()=>{ if(!sbc)return alert('클라우드 사용 불가.'); const em=$('#cl-email').value.trim(),pw=$('#cl-pw').value; if(!em||!pw)return alert('이메일·비밀번호를 입력하세요.'); const {error}=await sbc.auth.signInWithPassword({email:em,password:pw}); if(error){alert('로그인 실패: '+error.message); return;} clRefresh(); await cloudInitSync(); alert('로그인되었습니다. 이제 저장할 때마다 클라우드에 자동 반영됩니다.'); };
+if($('#cl-logout')) $('#cl-logout').onclick=async()=>{ if(!sbc)return; await sbc.auth.signOut(); _syncUser=null; setSyncBadge(''); clRefresh(); };
+if($('#cl-autosync')){ $('#cl-autosync').checked=AUTOSYNC; $('#cl-autosync').onchange=function(){ AUTOSYNC=this.checked; try{localStorage.setItem('crm_autosync',AUTOSYNC?'1':'0');}catch(e){} if(AUTOSYNC)scheduleSync(); else setSyncBadge('☁ 자동 동기화 꺼짐'); }; }
+if($('#cl-push')) $('#cl-push').onclick=cloudPush;
+if($('#cl-pull')) $('#cl-pull').onclick=cloudPull;
+
+
+function renderMember(m){ member=m; $('#member-name').textContent=(m.nickname||'회원')+(m.email?' · '+m.email:''); $('#avatar').textContent=((m.nickname||'회').trim()[0])||'회'; $('#logout').style.display=''; }
+function enterApp(m){ try{localStorage.setItem('crm_auth',JSON.stringify(m));}catch(e){} renderMember(m); $('#gate').classList.remove('show'); document.body.style.overflow=''; }
+$('#demo-login').onclick=()=>enterApp({nickname:'게스트(데모)',email:'',phone:''});
+$('#kakao-login').onclick=()=>{
+  if(location.protocol==='file:'){ alert('카카오 로그인은 웹(https) 도메인에 올렸을 때 작동합니다.\n로컬에서는 "로컬·데모로 입장"을 사용하세요.'); return; }
+  if(!KAKAO_JS_KEY){ alert('설정 필요: 코드 상단 KAKAO_JS_KEY에 카카오 JavaScript 키를 입력하세요.'); return; }
+  if(typeof Kakao==='undefined'){ alert('카카오 SDK 로드 실패(인터넷 연결을 확인하세요).'); return; }
+  try{ if(!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY); }catch(e){ alert('카카오 초기화 실패: '+e.message); return; }
+  Kakao.Auth.login({ scope:'profile_nickname,profile_image,account_email',
+    success(){ Kakao.API.request({url:'/v2/user/me',
+      success(res){ const a=res.kakao_account||{}, p=a.profile||{}; enterApp({nickname:p.nickname||'회원',email:a.email||'',phone:a.phone_number||''}); },
+      fail(err){ console.warn('user/me fail',err); enterApp({nickname:'회원',email:'',phone:''}); } }); },
+    fail(err){ alert('카카오 로그인 실패: '+JSON.stringify(err)); } });
+};
+$('#logout').onclick=()=>{
+  try{localStorage.removeItem('crm_auth');}catch(e){}
+  try{ if(typeof Kakao!=='undefined'&&Kakao.Auth&&Kakao.isInitialized()&&Kakao.Auth.getAccessToken&&Kakao.Auth.getAccessToken()) Kakao.Auth.logout(()=>{}); }catch(e){}
+  member=null; $('#member-name').textContent=''; $('#logout').style.display='none';
+  $('#gate').classList.add('show'); document.body.style.overflow='hidden';
+};
+function resumeAuth(){ try{ const a=JSON.parse(localStorage.getItem('crm_auth')||'null'); if(a&&a.nickname){ enterApp(a); return; } }catch(e){} document.body.style.overflow='hidden'; }
+
+function renderAll(){renderKpis();renderCal();renderDash();renderMatchSource();renderMatchResult();renderPropFilters();renderProps();renderCustFilters();renderCusts();renderPipe();renderTasks();save();}
+buildPropForm();
+load();
+renderAll();
+resumeAuth();
+clRefresh();
+if(sbc) cloudInitSync();
+</script>
+</body>
+</html>
