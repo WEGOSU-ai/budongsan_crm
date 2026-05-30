@@ -563,6 +563,19 @@
   </div>
 </div>
 
+<div class="ov" id="ov-send">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-h"><h3 id="send-title">메시지 발송</h3><button data-close>×</button></div>
+    <div class="modal-b">
+      <div id="send-to" style="font-size:13.5px;font-weight:600;margin-bottom:4px"></div>
+      <div id="send-hint" style="font-size:11.5px;color:var(--ink-soft);margin-bottom:8px"></div>
+      <textarea id="send-msg" class="msgbox" style="min-height:200px"></textarea>
+      <div id="send-count" style="font-size:11px;color:var(--ink-soft);margin-top:4px;text-align:right"></div>
+    </div>
+    <div class="modal-f"><button class="btn ghost" data-close>취소</button><button class="btn" id="send-go">📨 발송</button></div>
+  </div>
+</div>
+
 <div class="ov" id="ov-blog">
   <div class="modal">
     <div class="modal-h"><h3>📝 SNS 콘텐츠 생성 (표시·광고법 준수)</h3><button data-close>×</button></div>
@@ -1543,20 +1556,37 @@ function renderCustActions(c){
   $('#ca-sms').onclick=()=>aligoSend('sms',c);
   $('#ca-alim').onclick=()=>aligoSend('alim',c);
 }
-async function aligoSend(kind,c){
-  const phone=digits(c.phone); if(!phone) return alert('연락처가 없습니다.');
-  const def='[매칭홈] '+(c.name||'')+'님 안녕하세요. 문의주신 건으로 연락드립니다.'+((agency&&agency.name)?(' - '+agency.name):'');
-  const msg=prompt(kind==='sms'?'보낼 문자 내용을 확인/수정하세요':'알림톡 메시지(카카오 승인 템플릿 내용과 일치해야 발송됩니다)', def);
-  if(msg==null) return;
-  const b=event&&event.target; const old=b?b.textContent:''; if(b){b.disabled=true;b.textContent='발송 중…';}
+let sendCtx=null;
+function smsTemplate(c){ const ag=agency||{}; return '[매칭홈] '+(c.name||'고객')+'님 안녕하세요.'+(ag.name?(' '+ag.name):'')+(ag.owner?(' '+ag.owner):'')+'입니다.\n문의주신 매물 관련해 연락드립니다. 편하신 시간 알려주시면 안내드리겠습니다.'+(ag.phone?('\n☎ '+ag.phone):''); }
+function alimTemplate(c){ const ag=agency||{}; const cond=[TYPE[c.type],c.area,custBudget(c)].filter(Boolean).join(' / '); return '[매칭홈 부동산 안내]\n'+(c.name||'고객')+'님, 안녕하세요.\n'+(cond?('문의주신 조건('+cond+')에 맞는 '):'문의주신 ')+'매물을 안내드립니다.\n자세한 내용은 회신 주시면 도와드리겠습니다.\n- '+(ag.name||'매칭홈')+(ag.owner?(' '+ag.owner):'')+(ag.phone?(' '+ag.phone):''); }
+function byteLen(s){ try{ return new TextEncoder().encode(s).length; }catch(e){ return s.length*2; } }
+function aligoSend(kind,c){
+  if(!digits(c.phone)) return alert('연락처가 없습니다.');
+  sendCtx={kind,c};
+  $('#send-title').textContent = kind==='sms'?'✉️ 문자 발송 미리보기':'💬 알림톡 발송 미리보기';
+  $('#send-to').textContent = '받는 사람: '+(c.name||'')+' ('+fmtPhone(c.phone)+')';
+  $('#send-hint').innerHTML = kind==='sms'
+    ? '문자로 발송됩니다. 90바이트 초과 시 자동 LMS. 내용을 확인·수정 후 발송하세요.'
+    : '알림톡으로 발송됩니다. <b>※ 카카오 승인 템플릿과 내용이 일치해야</b> 발송됩니다(변수만 다름).';
+  $('#send-msg').value = kind==='sms'? smsTemplate(c) : alimTemplate(c);
+  updateSendCount();
+  openOv('ov-send');
+}
+function updateSendCount(){ const v=$('#send-msg')?$('#send-msg').value:''; const el=$('#send-count'); if(el){ const b=byteLen(v); el.textContent=b+' byte'+(sendCtx&&sendCtx.kind==='sms'?(b>90?' · LMS로 발송':' · SMS'):''); } }
+if($('#send-msg')) $('#send-msg').oninput=updateSendCount;
+if($('#send-go')) $('#send-go').onclick=async()=>{
+  if(!sendCtx) return; const {kind,c}=sendCtx; const msg=($('#send-msg').value||'').trim();
+  if(!msg) return alert('내용을 입력하세요.'); const phone=digits(c.phone);
+  const btn=$('#send-go'); btn.disabled=true; btn.textContent='발송 중…';
   try{
     const url=kind==='sms'?'/api/sms':'/api/alimtalk';
     const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver:phone,msg,message:msg,recvname:c.name||'',title:'매칭홈',subject:'안내'})});
     const d=await r.json();
-    alert(d.ok?((kind==='sms'?'문자':'알림톡')+' 발송 완료'):'발송 실패: '+(d.message||d.error||'알 수 없음'));
+    if(d.ok){ alert((kind==='sms'?'문자':'알림톡')+' 발송 완료'); closeOv(); }
+    else alert('발송 실패: '+(d.message||d.error||'알 수 없음')+(d.callerIp?('\n(서버 IP '+d.callerIp+')'):''));
   }catch(e){ alert('네트워크 오류: '+e.message); }
-  finally{ if(b){b.disabled=false;b.textContent=old;} }
-}
+  finally{ btn.disabled=false; btn.textContent='📨 발송'; }
+};
 async function kakaoEnqueue(kind,c){
   if(!sbc) return alert('클라우드 기능이 로드되지 않았습니다(인터넷 확인).');
   let u; try{ u=(await sbc.auth.getUser()).data.user; }catch(e){}
@@ -1843,28 +1873,3 @@ async function cloudPush(){ if(!sbc)return alert('클라우드 사용 불가(라
   try{
     await sbc.from('tasks').delete().not('id','is',null);
     await sbc.from('properties').delete().not('id','is',null);
-    await sbc.from('customers').delete().not('id','is',null);
-    if(custs.length){const e=(await sbc.from('customers').insert(custs.map(cToDb))).error; if(e)throw e;}
-    if(props.length){const e=(await sbc.from('properties').insert(props.map(pPropToDb))).error; if(e)throw e;}
-    if(tasks.length){const e=(await sbc.from('tasks').insert(tasks.map(tToDb))).error; if(e)throw e;}
-    await sbc.from('agency').upsert({owner_id:u.id,name:agency.name||null,addr:agency.addr||null,regno:agency.regno||null,rep_name:agency.owner||null,phone:agency.phone||null,updated_at:new Date().toISOString()});
-    alert('클라우드에 올렸습니다 — 매물 '+props.length+' · 고객 '+custs.length+' · 할일 '+tasks.length);
-  }catch(e){ alert('올리기 실패: '+(e.message||e)); }
-}
-async function cloudPull(){ if(!sbc)return alert('클라우드 사용 불가.'); const u=(await sbc.auth.getUser()).data.user; if(!u)return alert('먼저 클라우드 로그인하세요.');
-  if(!confirm('클라우드 데이터로 현재 화면을 교체합니다. 계속할까요?'))return;
-  try{
-    const [P,C,T,A]=await Promise.all([sbc.from('properties').select('*'),sbc.from('customers').select('*'),sbc.from('tasks').select('*'),sbc.from('agency').select('*').maybeSingle()]);
-    if(P.error||C.error||T.error)throw (P.error||C.error||T.error);
-    const cmap={}; custs=(C.data||[]).map((r,i)=>{const o=dbToC(r,i+1); cmap[String(r.ext_id)]=o.id; return o;}); cid=custs.length+1;
-    props=(P.data||[]).map((r,i)=>dbToProp(r,i+1)); pid=props.length+1;
-    tasks=(T.data||[]).map((r,i)=>({id:i+1,desc:r.descr||'',due:r.due_date||TODAY,time:r.due_time||'',custId:r.cust_ext?(cmap[String(r.cust_ext)]||null):null,phone:r.phone||'',done:!!r.done})); tid=tasks.length+1;
-    if(A&&A.data) agency={name:A.data.name||'',addr:A.data.addr||'',regno:A.data.regno||'',owner:A.data.rep_name||'',phone:A.data.phone||''};
-    renderAll(); alert('내려받았습니다 — 매물 '+props.length+' · 고객 '+custs.length+' · 할일 '+tasks.length);
-  }catch(e){ alert('내려받기 실패: '+(e.message||e)); }
-}
-/* ===== 자동 동기화 (저장 시 클라우드 반영) ===== */
-let AUTOSYNC = (localStorage.getItem('crm_autosync')!=='0');
-let _syncT=null, _syncing=false, _syncUser=null;
-function hhmm(){ const d=new Date(); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
-function setSyncBadge(txt,cls){ const b=$('#sync-badge'); if(!b)return; if(!txt){ b.style.display='none'; return; } b.sty
