@@ -13,15 +13,17 @@ function authHeader(){
 export default async function handler(req, res){
   try{
     if(req.method !== 'POST') return res.status(405).json({ ok:false, error:'POST_ONLY' });
-    if(!KEY || !SEC || !PFID || !TPLID) return res.status(200).json({ ok:false, error:'NO_ENV', message:'환경변수 SOLAPI_API_KEY / SOLAPI_API_SECRET / SOLAPI_PFID / SOLAPI_TEMPLATE_ID 를 설정하세요.' });
+    if(!KEY || !SEC || !PFID) return res.status(200).json({ ok:false, error:'NO_ENV', message:'환경변수 SOLAPI_API_KEY / SOLAPI_API_SECRET / SOLAPI_PFID 를 설정하세요.' });
     let body = req.body; if(typeof body === 'string'){ try{ body = JSON.parse(body); }catch(e){ body = {}; } }
     const to = String(body.receiver||'').replace(/\D/g,'');
     if(!to) return res.status(200).json({ ok:false, error:'BAD_PARAM', message:'receiver 가 필요합니다.' });
+    const templateId = body.templateId || TPLID;
+    if(!templateId) return res.status(200).json({ ok:false, error:'NO_TEMPLATE', message:'템플릿을 선택하거나 환경변수 SOLAPI_TEMPLATE_ID 를 설정하세요.' });
     const variables = (body.variables && typeof body.variables === 'object') ? body.variables : { '#{이름}': String(body.recvname||'') };
     const message = {
       to, from: FROM || undefined,
       type: 'ATA',
-      kakaoOptions: { pfId: PFID, templateId: TPLID, variables, disableSms: false }
+      kakaoOptions: { pfId: PFID, templateId, variables, disableSms: false }
     };
     const r = await fetch('https://api.solapi.com/messages/v4/send', {
       method:'POST', headers:{ 'Authorization': authHeader(), 'Content-Type':'application/json' },
