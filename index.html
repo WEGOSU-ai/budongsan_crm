@@ -1291,6 +1291,7 @@ function renderPipe(){
           ${needTags(c).length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}</div>`:''}
           ${c.note?`<div class="dt" style="color:var(--ink)">📝 ${esc(c.note)}</div>`:''}
           <div class="mv"><button data-mv="${c.id}" data-dir="-1" ${s===1?'disabled style=opacity:.3':''}>‹ 이전</button><button data-mv="${c.id}" data-dir="1" ${s===5?'disabled style=opacity:.3':''}>다음 ›</button></div>
+          <button class="pbtn" data-alim="${c.id}" onclick="event.stopPropagation()" style="width:100%;margin-top:5px">💬 솔라피 알림톡</button>
         </div>`).join('')||'<div style="font-size:12px;color:var(--ink-soft);text-align:center;padding:14px 0">비어있음</div>'}</div>
     </div>`;
   }).join('');
@@ -1308,6 +1309,7 @@ function renderPipe(){
     };
   });
   $$('[data-mv]').forEach(b=>b.onclick=e=>{e.stopPropagation();moveStage(+b.dataset.mv,+b.dataset.dir);});
+  $$('#pipe [data-alim]').forEach(b=>b.onclick=e=>{e.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.alim); if(c) sendMsg('solapi','alim',c,STAGE_TPL[c.stage]); });
   $$('#pipe [data-pexp]').forEach(b=>b.onclick=e=>{e.stopPropagation();exportStage(+b.dataset.pexp);});
 }
 function exportStage(s){
@@ -1564,7 +1566,7 @@ let sendCtx=null;
 function smsTemplate(c){ const ag=agency||{}; return '[매칭홈] '+(c.name||'고객')+'님 안녕하세요.'+(ag.name?(' '+ag.name):'')+(ag.owner?(' '+ag.owner):'')+'입니다.\n문의주신 매물 관련해 연락드립니다. 편하신 시간 알려주시면 안내드리겠습니다.'+(ag.phone?('\n☎ '+ag.phone):''); }
 function alimTemplate(c){ const ag=agency||{}; const cond=[TYPE[c.type],c.area,custBudget(c)].filter(Boolean).join(' / '); return '[매칭홈 부동산 안내]\n'+(c.name||'고객')+'님, 안녕하세요.\n'+(cond?('문의주신 조건('+cond+')에 맞는 '):'문의주신 ')+'매물을 안내드립니다.\n자세한 내용은 회신 주시면 도와드리겠습니다.\n- '+(ag.name||'매칭홈')+(ag.owner?(' '+ag.owner):'')+(ag.phone?(' '+ag.phone):''); }
 function byteLen(s){ try{ return new TextEncoder().encode(s).length; }catch(e){ return s.length*2; } }
-function sendMsg(provider,kind,c){
+function sendMsg(provider,kind,c,preferTplId){
   if(!digits(c.phone)) return alert('연락처가 없습니다.');
   sendCtx={provider,kind,c};
   const pv = provider==='solapi'?'솔라피':'알리고';
@@ -1580,7 +1582,10 @@ function sendMsg(provider,kind,c){
   if(sendCtx) sendCtx.templateId=null;
   updateSendCount();
   openOv('ov-send');
+  if(provider==='solapi'&&kind==='alim'&&preferTplId) autoPickTemplate(preferTplId);
 }
+const STAGE_TPL={1:'KA01TP260109030802491Tys0wSZhKFO',2:'KA01TP260109043025589Ep1p2z60ZrC',3:'KA01TP260109043316155P9QM3mXYPOY',4:'KA01TP260109043234787GbBu0Hs7DlS',5:'KA01TP260109043412861RL2seyIHetY'};
+async function autoPickTemplate(tplId){ try{ const r=await fetch('/api/solapi-templates'); const d=await r.json(); const t=(d.list||[]).find(x=>x.code===tplId); if(t){ const c=(sendCtx&&sendCtx.c)||{}; $('#send-msg').value=fillTemplateVars(t.content,c); if(sendCtx) sendCtx.templateId=t.code; renderVars(t.content); updateSendCount(); } }catch(e){} }
 function fillTemplateVars(text,c){ return String(text||'').replace(/#\{\s*(이름|고객명|성함|수신자명|성명)\s*\}/g, c.name||'').replace(/#\{\s*(연락처|전화번호)\s*\}/g, fmtPhone(c.phone)); }
 function renderVars(content){
   const box=$('#send-vars'); if(!box)return;
