@@ -2166,5 +2166,95 @@ if(sbc) cloudInitSync();
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',bind);}else{bind();}
 })();
 </script>
+<script>
+(function(){
+  var STT_URL=(localStorage.getItem('sttUrl')||'http://localhost:8787')+'/transcribe';
+  var TYPEMAP={'매매':'sale','전세':'jeonse','월세':'rent','투자':'invest'};
+  function $id(x){return document.getElementById(x);}
+  function dgt(s){return String(s||'').replace(/[^0-9]/g,'');}
+  function nphone(d){d=dgt(d);if(d.length>=10){return d.slice(0,3)+'-'+d.slice(3,d.length-4)+'-'+d.slice(-4);}return '';}
+  function parseFn(fn){
+    var base=fn.replace(/\.[^.]+$/,'');var out={phone:'',date:'',name:''};
+    var pm=base.match(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/);if(pm){out.phone=nphone(pm[0]);}
+    var dm=base.match(/(20\d{2})[-.\s_]?(\d{2})[-.\s_]?(\d{2})/);
+    if(dm){var mo=+dm[2],da=+dm[3];if(mo>=1&&mo<=12&&da>=1&&da<=31){out.date=dm[1]+'-'+dm[2]+'-'+dm[3];}}
+    if(!out.date){var tmp=base;if(out.phone){tmp=tmp.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,' ');}
+      var ym=tmp.match(/(?:^|[^0-9])(\d{2})(\d{2})(\d{2})(?:[^0-9]|$)/);
+      if(ym){var m2=+ym[2],d2=+ym[3];if(m2>=1&&m2<=12&&d2>=1&&d2<=31){out.date='20'+ym[1]+'-'+ym[2]+'-'+ym[3];}}}
+    var t=base.replace(/통화\s*녹음|녹음파일|녹음|recording|voice/gi,' ');
+    if(out.phone){t=t.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,' ');}
+    t=t.replace(/20\d{2}[-.\s_]?\d{2}[-.\s_]?\d{2}/,' ').replace(/\d{4,}/g,' ').replace(/[_\-.]/g,' ');
+    var nm=t.match(/[가-힣]{2,5}/);if(nm){out.name=nm[0];}
+    return out;
+  }
+  function buildNote(x,transcript,date){
+    var head='['+(date||TODAY)+' 통화]';
+    var summ=x.summary?('요약: '+x.summary):'';
+    var body=transcript?('전문: '+transcript):'';
+    return [head,summ,body].filter(Boolean).join('\n');
+  }
+  function upsertRec(parsed,x,transcript){
+    var pd=dgt(parsed.phone);
+    var note=buildNote(x,transcript,parsed.date);
+    var found=pd?custs.find(function(c){return dgt(c.phone)===pd;}):null;
+    if(found){
+      found.note=found.note?(found.note+'\n\n'+note):note;
+      if(!found.area&&x.region)found.area=x.region;
+      if(!found.fund&&x.fund)found.fund=x.fund;
+      if(!found.timeline&&x.timing)found.timeline=x.timing;
+      if(!found.size&&x.size)found.size=+x.size||0;
+      if(!found.min&&x.budMin)found.min=+x.budMin||0;
+      if(!found.max&&x.budMax)found.max=+x.budMax||0;
+      pushHist(found,'통화녹음 자동입력(기존)');
+      return {kind:'기존 보강',name:found.name||parsed.name||'(미확인)'};
+    }
+    var type=(x.type&&TYPEMAP[x.type])?TYPEMAP[x.type]:'sale';
+    var c={id:cid++,name:parsed.name||'(미확인)',phone:parsed.phone||'',type:type,stage:1,
+      area:x.region||'',min:+x.budMin||0,max:+x.budMax||0,size:+x.size||0,rent:+x.monthly||0,
+      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:'',note:note,closed:false,history:[]};
+    pushHist(c,'통화녹음 자동입력(신규)');
+    custs.push(c);
+    return {kind:'신규 등록',name:c.name};
+  }
+  function mkRow(name){
+    var d=document.createElement('div');
+    d.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:13px';
+    d.innerHTML='<span class="ic" style="flex-shrink:0">⏳</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+name+'</span><span class="st" style="color:var(--ink-soft);flex-shrink:0">대기 중</span>';
+    return d;
+  }
+  function setRow(d,icon,txt,color){d.querySelector('.ic').textContent=icon;var st=d.querySelector('.st');st.textContent=txt;if(color)st.style.color=color;}
+  var queue=[],busy=false,doneN=0,totalN=0;
+  function pump(){
+    if(busy)return; var item=queue.shift();
+    if(!item){ if(totalN){ renderAll(); var s=$id('rec-summary'); if(s)s.textContent='완료: 총 '+totalN+'건 처리 · 고객명단/클라우드에 반영됨'; totalN=0;doneN=0; } return; }
+    busy=true; var file=item.file,d=item.row;
+    var parsed=parseFn(file.name);
+    setRow(d,'🔎','파일명: '+(parsed.name||'-')+' / '+(parsed.phone||'-')+' · 분석 중…');
+    var fd=new FormData();fd.append('audio',file);
+    fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+      if(!j||!j.ok){ setRow(d,'⚠️','변환 실패: '+((j&&j.message)||'서버 오류'),'#c0392b'); }
+      else{ var res=upsertRec(parsed,j.fields||{},j.transcript||''); setRow(d,'✅',res.kind+': '+res.name+' ('+(parsed.phone||'번호없음')+')','var(--brand)'); }
+    }).catch(function(){ setRow(d,'❌','변환 서버 연결 안 됨 — PC에서 변환 서버를 켜주세요','#c0392b'); })
+    .finally(function(){ doneN++; var s=$id('rec-summary'); if(s)s.textContent='처리 중… '+doneN+' / '+totalN; busy=false; pump(); });
+  }
+  function addFiles(files){
+    var arr=[].slice.call(files).filter(function(f){return /audio|\.(m4a|mp3|wav|amr|aac|ogg|flac|3gp)$/i.test(f.type+f.name);});
+    if(!arr.length)return;
+    var list=$id('rec-list'); totalN+=arr.length;
+    arr.forEach(function(f){ var d=mkRow(f.name); list.insertBefore(d,list.firstChild); queue.push({file:f,row:d}); });
+    pump();
+  }
+  function initRecad(){
+    var drop=$id('rec-drop'),inp=$id('rec-files'); if(!drop||!inp||drop.__b)return; drop.__b=1;
+    drop.addEventListener('click',function(){ inp.click(); });
+    inp.addEventListener('change',function(){ addFiles(inp.files); inp.value=''; });
+    ['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); e.stopPropagation(); drop.style.borderColor='var(--brand)'; drop.style.background='#f0ebe0'; }); });
+    ['dragleave','dragend'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); e.stopPropagation(); drop.style.borderColor='#cbb89a'; drop.style.background='#faf7f0'; }); });
+    drop.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); drop.style.borderColor='#cbb89a'; drop.style.background='#faf7f0'; if(e.dataTransfer&&e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+  }
+  window.recadInit=initRecad;
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initRecad);}else{initRecad();}
+})();
+</script>
 </body>
 </html>

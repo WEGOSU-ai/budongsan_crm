@@ -1412,6 +1412,7 @@ function switchView(v){
   window.scrollTo(0,0);
   curView=v;
   renderTabbar();
+  if(v==='recad' && window.recadInit) window.recadInit();
 }
 const NAVITEMS=[['dash','🏠','대시보드'],['match','🎯','매칭'],['props','🏢','매물'],['custs','👥','고객'],['pipe','📊','파이프'],['recad','🎤','통화']];
 const PSTAGES=[[1,'🆕','신규'],[2,'📍','현장'],[3,'📑','검토'],[4,'✍️','계약'],[5,'🤝','사후'],['closed','🔚','종료']];
@@ -2149,5 +2150,4 @@ if(sbc) cloudInitSync();
       setEmpty('c-phone',p.phone);setEmpty('c-inq',p.date);setEmpty('c-name',p.name);
       if(msg){msg.textContent='파일명 분석: 이름 '+(p.name||'-')+' / 연락처 '+(p.phone||'-')+' / 문의일 '+(p.date||'-')+' · 음성 분석 중…(20분 통화는 수 분 소요)';}
       var fd=new FormData();fd.append('audio',file);
-      fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
-        if(!j||!j.ok
+      fetch(STT_URL,{method:'POST',body:fd}).then(function(r)
