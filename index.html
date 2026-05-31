@@ -331,6 +331,7 @@
     <button data-v="props">매물</button>
     <button data-v="custs">고객</button>
     <button data-v="pipe">파이프라인</button>
+    <button data-v="recad">통화업로드</button>
     <button data-v="tasks">할일·알림</button>
   </nav>
   <div class="who">
@@ -466,6 +467,18 @@
     <div class="sec-h"><div><h2>거래 파이프라인</h2><div class="sub">카드를 끌거나(PC) 버튼으로(모바일) 단계 이동 · 더블클릭하면 고객 상세로 이동</div></div></div>
     <div class="filters" id="pipe-filters"></div>
     <div class="pipe" id="pipe"></div>
+  </section>
+
+  <section class="view" id="v-recad">
+    <div class="sec-h"><div><h2>통화업로드</h2><div class="sub">녹음 파일을 끌어다 놓거나 선택하면, 여러 개를 한 번에 분석해 고객명단에 자동 등록합니다. (PC에서 변환 서버 실행 필요)</div></div></div>
+    <div id="rec-drop" style="border:2px dashed #cbb89a;border-radius:14px;background:#faf7f0;padding:34px 20px;text-align:center;cursor:pointer;transition:.15s">
+      <div style="font-size:34px;margin-bottom:8px">🎤</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px">여기로 통화녹음 파일을 끌어다 놓으세요</div>
+      <div style="font-size:13px;color:var(--ink-soft)">또는 클릭해서 선택 · 여러 개 동시 가능 (m4a·mp3·wav·amr 등)</div>
+      <input type="file" id="rec-files" accept="audio/*,.m4a,.mp3,.wav,.amr,.aac,.ogg,.flac,.3gp" multiple style="display:none">
+    </div>
+    <div id="rec-summary" style="font-size:13px;color:var(--ink-soft);margin:14px 2px 6px"></div>
+    <div id="rec-list" style="display:flex;flex-direction:column;gap:8px"></div>
   </section>
 
   <section class="view" id="v-tasks">
@@ -1400,7 +1413,7 @@ function switchView(v){
   curView=v;
   renderTabbar();
 }
-const NAVITEMS=[['dash','🏠','대시보드'],['match','🎯','매칭'],['props','🏢','매물'],['custs','👥','고객'],['pipe','📊','파이프']];
+const NAVITEMS=[['dash','🏠','대시보드'],['match','🎯','매칭'],['props','🏢','매물'],['custs','👥','고객'],['pipe','📊','파이프'],['recad','🎤','통화']];
 const PSTAGES=[[1,'🆕','신규'],[2,'📍','현장'],[3,'📑','검토'],[4,'✍️','계약'],[5,'🤝','사후'],['closed','🔚','종료']];
 function renderTabbar(){
   const bar=$('#tabbar'); if(!bar)return;
