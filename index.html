@@ -1412,6 +1412,7 @@ function switchView(v){
   window.scrollTo(0,0);
   curView=v;
   renderTabbar();
+  if(v==='recad' && window.recadInit) window.recadInit();
 }
 const NAVITEMS=[['dash','🏠','대시보드'],['match','🎯','매칭'],['props','🏢','매물'],['custs','👥','고객'],['pipe','📊','파이프'],['recad','🎤','통화']];
 const PSTAGES=[[1,'🆕','신규'],[2,'📍','현장'],[3,'📑','검토'],[4,'✍️','계약'],[5,'🤝','사후'],['closed','🔚','종료']];
