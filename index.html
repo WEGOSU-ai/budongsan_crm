@@ -508,7 +508,7 @@
   <div class="modal" style="max-width:540px">
     <div class="modal-h"><h3>고객 등록</h3><button data-close>×</button></div>
     <div class="modal-b">
-      <div id="c-actions" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
+      <div id="c-recbox" style="margin-bottom:14px;padding:10px 12px;border:1px dashed #cbb89a;border-radius:10px;background:#faf7f0"><label style="font-weight:600;display:block;margin-bottom:6px">🎤 통화녹음으로 자동 채우기</label><input type="file" id="c-recfile" accept="audio/*,.m4a,.mp3,.wav,.amr,.aac,.ogg" style="font-size:13px"><div id="c-recmsg" style="font-size:12px;color:#7a6f5a;margin-top:6px">녹음 파일을 선택하면 파일명에서 연락처·문의일을 채우고, 통화 내용을 분석해 항목을 자동 입력합니다.</div></div><div id="c-actions" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
       <div class="fg-row">
         <div class="fg"><label>이름</label><input id="c-name" placeholder="예) 김민수"></div>
         <div class="fg"><label>연락처</label><input id="c-phone" type="tel" placeholder="010-0000-0000"></div>
@@ -1361,7 +1361,7 @@ function exportPipeAll(){
   if(!base.length) return alert('내보낼 고객이 없습니다.');
   const rows=[];
   STAGES.forEach(s=>base.filter(c=>!c.closed&&c.stage===s).forEach(c=>rows.push([CSTAGE[c.stage],c.name,fmtPhone(c.phone),TYPE[c.type],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note])));
-  base.filter(c=>c.closed).forEach(c=>rows.push(['종료('+(CSTAGE[c.stageAtClose||c.stage]||'')+')',c.name,fmtPhone(c.phone),TYPE[c.type],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note])));
+  base.filter(c=>c.closed).forEach(c=>rows.push(['종료('+(CSTAGE[c.stageAtClose||c.stage]||'')+')',c.name,fmtPhone(c.phone),TYPE[c.type],c.area,c.min,c.max,c.size,c.rent||0,c.fund||'',c.timeline||'',custInqDate(c),c.move,c.note]));
   const tag=pipeFilter==='all'?'전체':TYPE[pipeFilter];
   downloadCsv(`파이프라인_${tag}_${rows.length}건_${TODAY}.csv`, ['단계',...TPL.cust.head], rows);
 }
@@ -2105,6 +2105,52 @@ renderAll();
 resumeAuth();
 clRefresh();
 if(sbc) cloudInitSync();
+</script>
+<script>
+(function(){
+  var STT_URL=(localStorage.getItem('sttUrl')||'http://localhost:8787')+'/transcribe';
+  var TYPEMAP={'매매':'sale','전세':'jeonse','월세':'rent','투자':'invest'};
+  function $(id){return document.getElementById(id);}
+  function normPhone(d){d=(d||'').replace(/[^0-9]/g,'');if(d.length>=10){return d.slice(0,3)+'-'+d.slice(3,d.length-4)+'-'+d.slice(-4);}return '';}
+  function parseName(fn){
+    var base=fn.replace(/\.[^.]+$/,'');var out={phone:'',date:'',name:''};
+    var pm=base.match(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/);if(pm){out.phone=normPhone(pm[0]);}
+    var dm=base.match(/(20\d{2})[-.\s_]?(\d{2})[-.\s_]?(\d{2})/);
+    if(dm){var mo=+dm[2],da=+dm[3];if(mo>=1&&mo<=12&&da>=1&&da<=31){out.date=dm[1]+'-'+dm[2]+'-'+dm[3];}}
+    if(!out.date){var tmp=base;if(out.phone){tmp=tmp.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,' ');}
+      var ym=tmp.match(/(?:^|[^0-9])(\d{2})(\d{2})(\d{2})(?:[^0-9]|$)/);
+      if(ym){var m2=+ym[2],d2=+ym[3];if(m2>=1&&m2<=12&&d2>=1&&d2<=31){out.date='20'+ym[1]+'-'+ym[2]+'-'+ym[3];}}}
+    var t=base.replace(/통화\s*녹음|녹음파일|녹음|recording|voice/gi,' ');
+    if(out.phone){t=t.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,' ');}
+    t=t.replace(/20\d{2}[-.\s_]?\d{2}[-.\s_]?\d{2}/,' ').replace(/\d{4,}/g,' ').replace(/[_\-.]/g,' ');
+    var nm=t.match(/[가-힣]{2,5}/);if(nm){out.name=nm[0];}
+    return out;
+  }
+  function setEmpty(id,v){var e=$(id);if(e&&v&&!e.value){e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));}}
+  function setSelEmpty(id,v){var e=$(id);if(e&&v&&!e.value){e.value=v;e.dispatchEvent(new Event('change',{bubbles:true}));}}
+  function bind(){
+    var f=$('c-recfile');if(!f||f.__b){return;}f.__b=1;
+    f.addEventListener('change',function(){
+      var file=f.files&&f.files[0];if(!file){return;}var msg=$('c-recmsg');
+      var p=parseName(file.name);
+      setEmpty('c-phone',p.phone);setEmpty('c-inq',p.date);setEmpty('c-name',p.name);
+      if(msg){msg.textContent='파일명 분석: 이름 '+(p.name||'-')+' / 연락처 '+(p.phone||'-')+' / 문의일 '+(p.date||'-')+' · 음성 분석 중…(20분 통화는 수 분 소요)';}
+      var fd=new FormData();fd.append('audio',file);
+      fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+        if(!j||!j.ok){if(msg){msg.textContent='변환 실패: '+((j&&j.message)||'서버 응답 오류')+' (파일명 기반 입력은 완료)';}return;}
+        var x=j.fields||{};
+        if(x.type&&TYPEMAP[x.type]){setSelEmpty('c-type',TYPEMAP[x.type]);}
+        setEmpty('c-area',x.region);setEmpty('c-min',x.budMin);setEmpty('c-max',x.budMax);
+        setEmpty('c-size',x.size);setEmpty('c-rent',x.monthly);
+        setSelEmpty('c-fund',x.fund);setSelEmpty('c-time',x.timing);
+        var memo=$('c-note');
+        if(memo){var add=(x.summary?('[통화 요약] '+x.summary+'\n\n'):'')+(j.transcript?('[통화 전문]\n'+j.transcript):'');memo.value=memo.value?(memo.value+'\n\n'+add):add;memo.dispatchEvent(new Event('input',{bubbles:true}));}
+        if(msg){msg.textContent='자동 입력 완료. 내용 확인 후 저장을 눌러주세요.';}
+      }).catch(function(){if(msg){msg.textContent='로컬 변환 서버에 연결할 수 없습니다. PC에서 변환 서버 실행 여부를 확인하세요. (파일명 기반 연락처·문의일은 입력됨)';}});
+    });
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',bind);}else{bind();}
+})();
 </script>
 </body>
 </html>
