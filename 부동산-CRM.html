@@ -2120,6 +2120,7 @@ resumeAuth();
 clRefresh();
 if(sbc) cloudInitSync();
 </script>
+
 <script>
 (function(){
   var STT_URL=(localStorage.getItem('sttUrl')||'http://localhost:8787')+'/transcribe';
@@ -2148,5 +2149,122 @@ if(sbc) cloudInitSync();
       var file=f.files&&f.files[0];if(!file){return;}var msg=$('c-recmsg');
       var p=parseName(file.name);
       setEmpty('c-phone',p.phone);setEmpty('c-inq',p.date);setEmpty('c-name',p.name);
-      if(msg){msg.textContent='파일명 분석: 이름 '+(p.name||'-')+' / 연락처 '+(p.phone||'-')+' / 문의일 '+(p.date||'-')+' · 음성 분석 중…(20분 통화는 수 분 소요)';}
-      var fd=new FormData();fd.appe
+      if(msg){msg.textContent='파일명 분석: '+(p.name||'-')+' / '+(p.phone||'-')+' / '+(p.date||'-')+' · 음성 분석 중…';}
+      var fd=new FormData();fd.append('audio',file);
+      fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+        if(!j||!j.ok){if(msg){msg.textContent='변환 실패: '+((j&&j.message)||'서버 오류')+' (파일명 입력은 완료)';}return;}
+        var x=j.fields||{};
+        if(x.type&&TYPEMAP[x.type]){setSelEmpty('c-type',TYPEMAP[x.type]);}
+        setEmpty('c-area',x.region);setEmpty('c-min',x.budMin);setEmpty('c-max',x.budMax);
+        setEmpty('c-size',x.size);setEmpty('c-rent',x.monthly);
+        setSelEmpty('c-fund',x.fund);setSelEmpty('c-time',x.timing);
+        var memo=$('c-note');
+        if(memo){var add=(x.summary?('[요약] '+x.summary+'\n\n'):'')+(j.transcript?('[전문]\n'+j.transcript):'');memo.value=memo.value?(memo.value+'\n\n'+add):add;memo.dispatchEvent(new Event('input',{bubbles:true}));}
+        if(msg){msg.textContent='자동 입력 완료. 확인 후 저장하세요.';}
+      }).catch(function(){if(msg){msg.textContent='변환 서버에 연결할 수 없습니다. PC에서 서버를 켜주세요.';}});
+    });
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',bind);}else{bind();}
+})();
+</script>
+<script>
+(function(){
+  var STT_URL=(localStorage.getItem('sttUrl')||'http://localhost:8787')+'/transcribe';
+  var TYPEMAP={'매매':'sale','전세':'jeonse','월세':'rent','투자':'invest'};
+  function $id(x){return document.getElementById(x);}
+  function dgt(s){return String(s||'').replace(/[^0-9]/g,'');}
+  function nphone(d){d=dgt(d);if(d.length>=10){return d.slice(0,3)+'-'+d.slice(3,d.length-4)+'-'+d.slice(-4);}return '';}
+  function parseFn(fn){
+    var base=fn.replace(/\.[^.]+$/,'');var out={phone:'',date:'',name:''};
+    var pm=base.match(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/);if(pm){out.phone=nphone(pm[0]);}
+    var dm=base.match(/(20\d{2})[-.\s_]?(\d{2})[-.\s_]?(\d{2})/);
+    if(dm){var mo=+dm[2],da=+dm[3];if(mo>=1&&mo<=12&&da>=1&&da<=31){out.date=dm[1]+'-'+dm[2]+'-'+dm[3];}}
+    if(!out.date){var tmp=base;if(out.phone){tmp=tmp.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,' ');}
+      var ym=tmp.match(/(?:^|[^0-9])(\d{2})(\d{2})(\d{2})(?:[^0-9]|$)/);
+      if(ym){var m2=+ym[2],d2=+ym[3];if(m2>=1&&m2<=12&&d2>=1&&d2<=31){out.date='20'+ym[1]+'-'+ym[2]+'-'+ym[3];}}}
+    var t=base.replace(/통화\s*녹음|녹음파일|녹음|recording|voice/gi,' ');
+    if(out.phone){t=t.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,' ');}
+    t=t.replace(/20\d{2}[-.\s_]?\d{2}[-.\s_]?\d{2}/,' ').replace(/\d{4,}/g,' ').replace(/[_\-.]/g,' ');
+    var nm=t.match(/[가-힣]{2,5}/);if(nm){out.name=nm[0];}
+    return out;
+  }
+  function buildNote(x,transcript,date){
+    var head='['+(date||TODAY)+' 통화]';
+    var summ=x.summary?('요약: '+x.summary):'';
+    var body=transcript?('전문: '+transcript):'';
+    return [head,summ,body].filter(Boolean).join('\n');
+  }
+  function upsertRec(parsed,x,transcript){
+    var pd=dgt(parsed.phone);
+    var note=buildNote(x,transcript,parsed.date);
+    var found=pd?custs.find(function(c){return dgt(c.phone)===pd;}):null;
+    if(found){
+      found.note=found.note?(found.note+'\n\n'+note):note;
+      if(!found.area&&x.region)found.area=x.region;
+      if(!found.fund&&x.fund)found.fund=x.fund;
+      if(!found.timeline&&x.timing)found.timeline=x.timing;
+      if(!found.size&&x.size)found.size=+x.size||0;
+      if(!found.min&&x.budMin)found.min=+x.budMin||0;
+      if(!found.max&&x.budMax)found.max=+x.budMax||0;
+      pushHist(found,'통화녹음 자동입력(기존)');
+      return {kind:'기존 보강',name:found.name||parsed.name||'(미확인)',id:found.id};
+    }
+    var type=(x.type&&TYPEMAP[x.type])?TYPEMAP[x.type]:'sale';
+    var c={id:cid++,name:parsed.name||'(미확인)',phone:parsed.phone||'',type:type,stage:1,
+      area:x.region||'',min:+x.budMin||0,max:+x.budMax||0,size:+x.size||0,rent:+x.monthly||0,
+      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:'',note:note,closed:false,history:[]};
+    pushHist(c,'통화녹음 자동입력(신규)');
+    custs.push(c);
+    return {kind:'신규 등록',name:c.name,id:c.id};
+  }
+  function mkRow(item){
+    var d=document.createElement('div');
+    d.style.cssText='display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:13px';
+    d.innerHTML='<span class="ic" style="flex-shrink:0">⏳</span>'
+      +'<span class="nm" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>'
+      +'<span class="st" style="color:var(--ink-soft);flex-shrink:0"></span>'
+      +'<button class="retry" title="다시 시도" style="display:none;flex-shrink:0;border:none;background:none;cursor:pointer;font-size:15px;padding:2px 4px">↻</button>'
+      +'<button class="del" title="목록에서 제거" style="flex-shrink:0;border:none;background:none;cursor:pointer;font-size:15px;color:var(--ink-soft);padding:2px 4px">✖</button>';
+    d.querySelector('.nm').textContent=item.file.name;
+    d.querySelector('.st').textContent='대기 중';
+    d.querySelector('.del').onclick=function(ev){ ev.stopPropagation(); var qi=queue.indexOf(item); if(qi>-1)queue.splice(qi,1); d.remove(); };
+    d.querySelector('.retry').onclick=function(ev){ ev.stopPropagation(); d.querySelector('.retry').style.display='none'; d._cid=null; d.style.cursor='default'; setRow(d,'⏳','재시도 대기'); queue.push(item); pump(); };
+    d.onclick=function(){ if(d._cid&&typeof gotoCust==='function'){ switchView('custs'); var cc=custs.find(function(x){return x.id===d._cid;}); if(cc){ $id('cust-search').value=cc.name; } gotoCust(d._cid); } };
+    return d;
+  }
+  function setRow(d,icon,txt,color){d.querySelector('.ic').textContent=icon;var st=d.querySelector('.st');st.textContent=txt;if(color)st.style.color=color;}
+  var queue=[],busy=false,doneN=0,totalN=0;
+  function pump(){
+    if(busy)return; var item=queue.shift();
+    if(!item){ if(totalN){ renderAll(); var s=$id('rec-summary'); if(s)s.textContent='완료: 총 '+totalN+'건 · 처리된 줄을 누르면 고객으로 이동'; totalN=0;doneN=0; } return; }
+    busy=true; var file=item.file,d=item.row;
+    var parsed=parseFn(file.name);
+    setRow(d,'🔎','분석 중… '+(parsed.name||'-')+' / '+(parsed.phone||'-'));
+    var fd=new FormData();fd.append('audio',file);
+    fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
+      if(!j||!j.ok){ setRow(d,'⚠️','변환 실패: '+((j&&j.message)||'서버 오류'),'#c0392b'); d.querySelector('.retry').style.display=''; }
+      else{ var res=upsertRec(parsed,j.fields||{},j.transcript||''); d._cid=res.id; d.style.cursor='pointer'; setRow(d,'✅',res.kind+': '+res.name+' ('+(parsed.phone||'번호없음')+') · 클릭→고객','var(--brand)'); }
+    }).catch(function(){ setRow(d,'❌','변환 서버 연결 안 됨 — PC에서 서버를 켜주세요','#c0392b'); d.querySelector('.retry').style.display=''; })
+    .finally(function(){ doneN++; var s=$id('rec-summary'); if(s)s.textContent='처리 중… '+doneN+' / '+totalN; busy=false; pump(); });
+  }
+  function addFiles(files){
+    var arr=[].slice.call(files).filter(function(f){return /audio|\.(m4a|mp3|wav|amr|aac|ogg|flac|3gp)$/i.test(f.type+f.name);});
+    if(!arr.length)return;
+    var list=$id('rec-list'); totalN+=arr.length;
+    arr.forEach(function(f){ var item={file:f,row:null}; var d=mkRow(item); item.row=d; list.insertBefore(d,list.firstChild); queue.push(item); });
+    pump();
+  }
+  function initRecad(){
+    var drop=$id('rec-drop'),inp=$id('rec-files'); if(!drop||!inp||drop.__b)return; drop.__b=1;
+    drop.addEventListener('click',function(){ inp.click(); });
+    inp.addEventListener('change',function(){ addFiles(inp.files); inp.value=''; });
+    ['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); e.stopPropagation(); drop.style.borderColor='var(--brand)'; drop.style.background='#f0ebe0'; }); });
+    ['dragleave','dragend'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); e.stopPropagation(); drop.style.borderColor='#cbb89a'; drop.style.background='#faf7f0'; }); });
+    drop.addEventListener('drop',function(e){ e.preventDefault(); e.stopPropagation(); drop.style.borderColor='#cbb89a'; drop.style.background='#faf7f0'; if(e.dataTransfer&&e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+  }
+  window.recadInit=initRecad;
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initRecad);}else{initRecad();}
+})();
+</script>
+</body>
+</html>
