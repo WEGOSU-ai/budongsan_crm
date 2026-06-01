@@ -654,7 +654,7 @@
 </div>
 
 <script>
-const TODAY='2026-05-29';
+const TODAY=(function(){const d=new Date();const z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());})();
 const TYPE={sale:'매매',jeonse:'전세',rent:'월세',invest:'투자'};
 const PSTATUS={1:'접수',2:'광고중',3:'계약진행',5:'거래완료'};
 const CSTAGE={1:'신규문의',2:'현장안내',3:'계약검토',4:'계약',5:'사후관리'};
