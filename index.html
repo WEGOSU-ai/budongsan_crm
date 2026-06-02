@@ -793,6 +793,31 @@ function digits(s){ return String(s||'').replace(/\D/g,''); }
 function fmtPhone(s){ const d=digits(s); if(!d) return ''; if(d.length===11) return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7); if(d.length===10){ if(d.startsWith('02')) return d.slice(0,2)+'-'+d.slice(2,6)+'-'+d.slice(6); return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6); } if(d.length===8) return d.slice(0,4)+'-'+d.slice(4); if(d.length===9&&d.startsWith('02')) return '02-'+d.slice(2,5)+'-'+d.slice(5); return String(s||''); }
 function mphone(p){ if(!maskOn||!p)return p||''; let seen=0; return String(p).split('').reverse().map(ch=>{ if(/\d/.test(ch)){seen++;return seen<=4?ch:'*';} return ch; }).reverse().join(''); }
 function mname(n){ n=String(n==null?'':n); if(maskOn&&n.length>1) n = n.length===2? n[0]+'*' : n[0]+'*'.repeat(n.length-2)+n[n.length-1]; return esc(n); }
+// 메모(note)를 통화 블록 단위로 시간순 정렬 (오래된 통화가 위). '[YYYY-MM-DD ...' 헤더 기준
+function sortNoteByTime(note){
+  var s=String(note||''); if(!s.trim()) return s;
+  var blocks=s.split(/\n\n+/);
+  function keyOf(b){ var m=b.match(/\[(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?/); if(!m) return ''; return m[1]+m[2]+m[3]+(m[4]||'00')+(m[5]||'00'); }
+  // 통화 블록(헤더 있는 것)만 정렬, 헤더 없는 일반 메모는 맨 위 보존
+  var dated=[],plain=[];
+  blocks.forEach(function(b){ (keyOf(b)?dated:plain).push(b); });
+  dated.sort(function(a,b){ return keyOf(a).localeCompare(keyOf(b)); });
+  return plain.concat(dated).join('\n\n');
+}
+// 이름이 없거나 '(미확인)'이면 거래유형+핵심특징 10글자 이내 요약을 표시 이름으로 사용
+function dispName(c){
+  var nm=String(c&&c.name!=null?c.name:'').trim();
+  if(nm && nm!=='(미확인)') return nm;
+  var t=(TYPE[c.type]||'')+(c&&c.side?SIDE[c.side]||'':'');  // 예: 월세임차
+  var feat='';
+  var tags=(typeof needTags==='function')?needTags(c):[];
+  if(tags&&tags.length) feat=tags[0];               // 니즈 칩 첫번째(주차/학군 등)
+  else if(c&&c.area) feat=String(c.area);            // 없으면 지역
+  else if(c&&c.action) feat=String(c.action);        // 없으면 실행액션
+  var s=(t+(feat?' '+feat:'')).trim();
+  if(!s) s='미확인';
+  return s.length>10? s.slice(0,10) : s;
+}
 function munit(n){ n=String(n==null?'':n); if(maskOn) n=n.replace(/\d+(?=\s*호)/g,m=>'*'.repeat(Math.min(m.length,4))).replace(/\d+(?=\s*동)/g,m=>'*'.repeat(Math.min(m.length,3))); return esc(n); }
 function roleLabel(p){ return (p.type==='sale'||p.type==='invest')?'매도자':'임대인'; }
 function primaryContact(p){ if(p.type==='sale'||p.type==='invest')return p.sPhone||p.bPhone||p.agentPhone||p.mobile||p.owner||''; return p.lrPhone||p.lePhone||p.agentPhone||p.mobile||p.owner||''; }
@@ -942,7 +967,7 @@ function buildEvents(){
   const ev={};
   const push=(d,o)=>{ if(!d)return; (ev[d]=ev[d]||[]).push(o); };
   props.forEach(p=>{const pc=primaryContact(p);push(p.move,{cls:'move-p',kind:'prop',id:p.id,time:'',txt:`🏠 ${munit(p.name)} 입주가능${pc?' · '+mphone(pc):''}`});});
-  custs.forEach(c=>push(c.move,{cls:'move-c',kind:'cust',id:c.id,time:'',txt:`🔑 ${mname(c.name)} 입주희망${c.phone?' · '+mphone(c.phone):''}`}));
+  custs.forEach(c=>push(c.move,{cls:'move-c',kind:'cust',id:c.id,time:'',txt:`🔑 ${mname(dispName(c))} 입주희망${c.phone?' · '+mphone(c.phone):''}`}));
   tasks.forEach(t=>{ if(!t.done){const ph=taskPhone(t);push(t.due,{cls:daysLeft(t.due)<0?'over':'task',kind:'task',id:t.id,time:t.time||'',txt:`📌 ${t.desc}${ph?' · '+mphone(ph):''}`});} });
   return ev;
 }
@@ -1033,7 +1058,7 @@ function renderDash(){
     const c=t.custId?custs.find(x=>x.id===t.custId):null;
     const ph=taskPhone(t);
     return `<div class="row" data-tk="${t.id}">
-      <div class="main"><div class="title" style="font-size:13.5px">${esc(t.desc)}</div><div class="meta">${fmtD(t.due)}${c?' · '+mname(c.name):''}${ph?' · '+mphone(ph):''} · <b style="color:${over?'var(--accent)':'var(--brand)'}">${dtxt}</b></div></div>
+      <div class="main"><div class="title" style="font-size:13.5px">${esc(t.desc)}</div><div class="meta">${fmtD(t.due)}${c?' · '+mname(dispName(c)):''}${ph?' · '+mphone(ph):''} · <b style="color:${over?'var(--accent)':'var(--brand)'}">${dtxt}</b></div></div>
       <button class="btn ghost sm" data-dash-done="${t.id}">완료</button></div>`;
   }).join('')||'<div class="empty"><div class="ic">✓</div>할일이 없습니다.</div>';
   $$('#dash-tasks [data-dash-done]').forEach(b=>b.onclick=e=>{e.stopPropagation();const t=tasks.find(x=>x.id===+b.dataset.dashDone);t.done=true;renderAll();});
@@ -1089,7 +1114,7 @@ function renderMatchSource(){
       <div class="row ${selected&&selected.id===c.id&&matchMode==='cust'?'sel':''}" data-sid="${c.id}">
         <span class="idx">${i+1}</span>
         <div class="main">
-          <div class="title">${typeTag(c.type)} ${stageTag(c.stage)} ${mname(c.name)} <span style="font-weight:400;color:var(--ink-soft);font-size:12px">${mphone(c.phone)}</span></div>
+          <div class="title">${typeTag(c.type)} ${stageTag(c.stage)} ${mname(dispName(c))} <span style="font-weight:400;color:var(--ink-soft);font-size:12px">${mphone(c.phone)}</span></div>
           <div class="meta">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)}</div>
         </div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>해당 고객이 없습니다.</div>';
   }
@@ -1148,7 +1173,7 @@ function renderMatchResult(){
       const o=r.obj, isCust=matchMode==='prop';
       const rec = o.id===topId ? '<span class="tag rec">⭐추천</span>' : '';
       const ph = isCust ? mphone(o.phone) : mphone(primaryContact(o));
-      const nm = isCust ? mname(o.name) : nameOpen(o);
+      const nm = isCust ? mname(dispName(o)) : nameOpen(o);
       const meta=isCust
         ?`${esc(o.area)} · 희망 ${o.size}㎡ · ${custBudget(o)} · ${stageTag(o.stage)}`
         :`${esc(o.area)} · ${o.size}㎡ · ${propLabel(o)}${o.type==='rent'?' · 환산 '+won(convDep(o.type,o.price,o.rent)):''}${pyPrice(o)?' · 평당 '+pyPrice(o).toLocaleString()+'만':''} · ${roleLabel(o)} · ${statusTag(o.status)}`;
@@ -1291,7 +1316,7 @@ function renderCusts(){
     <div class="row" data-cid="${c.id}">
       <span class="idx">${i+1}</span>
       <div class="main">
-        <div class="title">${typeTag(c.type,c.side)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(c.name)}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span></div>
+        <div class="title">${typeTag(c.type,c.side)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(dispName(c))}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span></div>
         <div class="meta">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)} · 입주희망 ${fmtD(c.move)||'-'}${c.fund?' · '+esc(c.fund):''}${c.timeline?' · '+esc(c.timeline):''}${c.action?' · <b style="color:var(--brand)">▶ '+esc(c.action)+'</b>':''}${c.note?' · '+esc(c.note):''}</div>${(needTags(c).length||leadHot(c))?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}${leadHot(c)?'<span class="lead">🔥 진성</span>':''}</div>`:''}
       </div><div style="text-align:right;display:flex;flex-direction:column;gap:5px;align-items:flex-end">${digits(c.phone)?`<a class="pbtn" href="tel:${digits(c.phone)}" onclick="event.stopPropagation()" title="전화 걸기" style="text-decoration:none">📞 통화</a>`:''}<button class="pbtn" data-cclose="${c.id}" onclick="event.stopPropagation()" title="안내 종료/재개">${c.closed?'↩ 재개':'🔚 종료'}</button><div class="edit-hint">✎ 수정</div></div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>조건에 맞는 고객이 없습니다.</div>';
   $$('#cust-list .row').forEach(r=>r.onclick=()=>fillCust(custs.find(x=>x.id===+r.dataset.cid)));
@@ -1333,7 +1358,7 @@ function renderPipe(){
       <div class="pcol-h">${label}<span class="c">${items.length}</span><button class="btn ghost sm" data-pexp="${s}" title="이 칸만 엑셀(CSV) 추출" style="margin-left:auto;padding:2px 7px">⬇ 엑셀</button></div>
       <div class="pcol-b">${items.map((c,i)=>`
         <div class="pcard" draggable="true" data-cid="${c.id}" title="더블클릭하면 고객 상세로 이동">
-          <div class="nm"><span>${i+1}. ${mname(c.name)}${custInqDate(c)?' ('+fmtYY(custInqDate(c))+')':''}</span><span class="tag ${c.type}">${TYPE[c.type]}</span></div>
+          <div class="nm"><span>${i+1}. ${mname(dispName(c))}${custInqDate(c)?' ('+fmtYY(custInqDate(c))+')':''}</span><span class="tag ${c.type}">${TYPE[c.type]}</span></div>
           <div class="ph">📞 ${mphone(c.phone)||'-'}</div>
           <div class="dt">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)}</div>
           <div class="dt">입주희망 ${fmtD(c.move)||'-'} · 단계 ${CSTAGE[c.stage]}${c.closed?' · <span style="color:var(--accent)">🔚종료</span>':''}</div>
@@ -1396,7 +1421,7 @@ function renderTasks(){
     return `<div class="task ${over?'over':''}" data-tid="${t.id}">
       <span class="idx">${i+1}</span>
       <div class="due">${fmtD(t.due)}<br><span style="font-size:11px;font-weight:400;color:${over?'var(--accent)':'var(--ink-soft)'}">${t.time?t.time+' · ':''}${dtxt}</span></div>
-      <div class="desc">${t.done?'<s>'+esc(t.desc)+'</s>':esc(t.desc)}<small>${c?mname(c.name):''}${ph?(c?' · ':'')+mphone(ph):''}</small></div>
+      <div class="desc">${t.done?'<s>'+esc(t.desc)+'</s>':esc(t.desc)}<small>${c?mname(dispName(c)):''}${ph?(c?' · ':'')+mphone(ph):''}</small></div>
       <button class="btn ghost sm" data-ics="${t.id}" title="구글 캘린더에 추가">📅</button>
       <button class="btn ghost sm" data-edit="${t.id}">수정</button>
       <button class="btn ghost sm" data-done="${t.id}">${t.done?'완료됨':'완료'}</button>
@@ -1752,7 +1777,7 @@ function fillCust(c){
   var _sel=$('#c-type'); _sel.value=_combo; if(!_sel.value)_sel.value=(c?c.type:'sale')+'|'+defSide(c?c.type:'sale');
   $('#c-stage').value=c?c.stage:1;
   $('#c-area').value=c?c.area:''; $('#c-min').value=c&&c.min?(+c.min).toLocaleString():''; $('#c-max').value=c&&c.max?(+c.max).toLocaleString():'';
-  $('#c-size').value=c&&c.size?c.size:''; $('#c-rent').value=c&&c.rent?c.rent:''; $('#c-fund').value=c?c.fund||'':''; $('#c-time').value=c?c.timeline||'':''; $('#c-inq').value=c?(c.inq||c.created||''):''; $('#c-move').value=c?c.move||'':''; $('#c-note').value=c?c.note||'':''; $('#c-action').value=c?c.action||'':'';
+  $('#c-size').value=c&&c.size?c.size:''; $('#c-rent').value=c&&c.rent?c.rent:''; $('#c-fund').value=c?c.fund||'':''; $('#c-time').value=c?c.timeline||'':''; $('#c-inq').value=c?(c.inq||c.created||''):''; $('#c-move').value=c?c.move||'':''; $('#c-note').value=c?sortNoteByTime(c.note||''):''; $('#c-action').value=c?c.action||'':'';
   renderCustActions(c); renderCustHistory(c);
   openOv('ov-cust');
 }
