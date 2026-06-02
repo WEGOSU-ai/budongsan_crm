@@ -2175,13 +2175,17 @@ if(sbc) cloudInitSync();
   function dgt(s){return String(s||'').replace(/[^0-9]/g,'');}
   function nphone(d){d=dgt(d);if(d.length>=10){return d.slice(0,3)+'-'+d.slice(3,d.length-4)+'-'+d.slice(-4);}return '';}
   function parseFn(fn){
-    var base=fn.replace(/\.[^.]+$/,'');var out={phone:'',date:'',name:''};
+    var base=fn.replace(/\.[^.]+$/,'');var out={phone:'',date:'',name:'',ts:0};
     var pm=base.match(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/);if(pm){out.phone=nphone(pm[0]);}
     var dm=base.match(/(20\d{2})[-.\s_]?(\d{2})[-.\s_]?(\d{2})/);
     if(dm){var mo=+dm[2],da=+dm[3];if(mo>=1&&mo<=12&&da>=1&&da<=31){out.date=dm[1]+'-'+dm[2]+'-'+dm[3];}}
     if(!out.date){var tmp=base;if(out.phone){tmp=tmp.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,' ');}
       var ym=tmp.match(/(?:^|[^0-9])(\d{2})(\d{2})(\d{2})(?:[^0-9]|$)/);
       if(ym){var m2=+ym[2],d2=+ym[3];if(m2>=1&&m2<=12&&d2>=1&&d2<=31){out.date='20'+ym[1]+'-'+ym[2]+'-'+ym[3];}}}
+    // 통화 시각(정렬용): 파일명에서 14자리(YYYYMMDDhhmmss) 우선, 없으면 날짜+시:분 조합
+    var full=base.match(/(20\d{2})[-.\s_]?(\d{2})[-.\s_]?(\d{2})[-.\s_T]*(\d{2})[-.\s_:]?(\d{2})[-.\s_:]?(\d{2})?/);
+    if(full){out.ts=+(full[1]+full[2]+full[3]+full[4]+full[5]+(full[6]||'00'));}
+    else if(out.date){out.ts=+(out.date.replace(/-/g,'')+'000000');}
     var t=base.replace(/통화\s*녹음|녹음파일|녹음|recording|voice/gi,' ');
     if(out.phone){t=t.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,' ');}
     t=t.replace(/20\d{2}[-.\s_]?\d{2}[-.\s_]?\d{2}/,' ').replace(/\d{4,}/g,' ').replace(/[_\-.]/g,' ');
@@ -2194,11 +2198,24 @@ if(sbc) cloudInitSync();
     var body=transcript?('전문: '+transcript):'';
     return [head,summ,body].filter(Boolean).join('\n');
   }
+  function sig(transcript,date){
+    // 중복 판정용 지문: 통화 전문 앞부분(공백제거)으로 비교. 전문 없으면 날짜로.
+    var t=String(transcript||'').replace(/\s/g,'');
+    return t?t.slice(0,80):('DATE:'+(date||''));
+  }
   function upsertRec(parsed,x,transcript){
     var pd=dgt(parsed.phone);
     var note=buildNote(x,transcript,parsed.date);
+    var mark=sig(transcript,parsed.date);
     var found=pd?custs.find(function(c){return dgt(c.phone)===pd;}):null;
     if(found){
+      // 같은 번호에 같은 내용(또는 같은 날짜)이 이미 있으면 추가하지 않음
+      var prevSigs=Array.isArray(found.recSigs)?found.recSigs:[];
+      var dupByNote=found.note&&transcript&&found.note.replace(/\s/g,'').indexOf(mark)>-1;
+      if(prevSigs.indexOf(mark)>-1||dupByNote){
+        return {kind:'중복(건너뜀)',name:found.name||parsed.name||'(미확인)',id:found.id,dup:true};
+      }
+      found.recSigs=prevSigs.concat([mark]);
       found.note=found.note?(found.note+'\n\n'+note):note;
       if(!found.area&&x.region)found.area=x.region;
       if(!found.fund&&x.fund)found.fund=x.fund;
@@ -2212,7 +2229,7 @@ if(sbc) cloudInitSync();
     var type=(x.type&&TYPEMAP[x.type])?TYPEMAP[x.type]:'sale';
     var c={id:cid++,name:parsed.name||'(미확인)',phone:parsed.phone||'',type:type,stage:1,
       area:x.region||'',min:+x.budMin||0,max:+x.budMax||0,size:+x.size||0,rent:+x.monthly||0,
-      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:'',note:note,closed:false,history:[]};
+      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:'',note:note,closed:false,history:[],recSigs:[mark]};
     pushHist(c,'통화녹음 자동입력(신규)');
     custs.push(c);
     return {kind:'신규 등록',name:c.name,id:c.id};
@@ -2243,15 +2260,18 @@ if(sbc) cloudInitSync();
     var fd=new FormData();fd.append('audio',file);
     fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
       if(!j||!j.ok){ setRow(d,'⚠️','변환 실패: '+((j&&j.message)||'서버 오류'),'#c0392b'); d.querySelector('.retry').style.display=''; }
-      else{ var res=upsertRec(parsed,j.fields||{},j.transcript||''); d._cid=res.id; d.style.cursor='pointer'; setRow(d,'✅',res.kind+': '+res.name+' ('+(parsed.phone||'번호없음')+') · 클릭→고객','var(--brand)'); }
+      else{ var res=upsertRec(parsed,j.fields||{},j.transcript||''); d._cid=res.id; d.style.cursor='pointer'; setRow(d, res.dup?'⏭️':'✅', res.kind+': '+res.name+' ('+(parsed.phone||'번호없음')+') · 클릭→고객', res.dup?'#b8860b':'var(--brand)'); }
     }).catch(function(){ setRow(d,'❌','변환 서버 연결 안 됨 — PC에서 서버를 켜주세요','#c0392b'); d.querySelector('.retry').style.display=''; })
     .finally(function(){ doneN++; var s=$id('rec-summary'); if(s)s.textContent='처리 중… '+doneN+' / '+totalN; busy=false; pump(); });
   }
   function addFiles(files){
     var arr=[].slice.call(files).filter(function(f){return /audio|\.(m4a|mp3|wav|amr|aac|ogg|flac|3gp)$/i.test(f.type+f.name);});
     if(!arr.length)return;
+    // 통화 시각(파일명) 오름차순 정렬 → 통화한 순서대로 처리·표시. 시각 없으면 이름순.
+    arr.sort(function(a,b){ var pa=parseFn(a.name).ts,pb=parseFn(b.name).ts; if(pa&&pb&&pa!==pb)return pa-pb; if(pa&&!pb)return -1; if(!pa&&pb)return 1; return a.name.localeCompare(b.name); });
     var list=$id('rec-list'); totalN+=arr.length;
-    arr.forEach(function(f){ var item={file:f,row:null}; var d=mkRow(item); item.row=d; list.insertBefore(d,list.firstChild); queue.push(item); });
+    // 오래된 통화가 위, 최신이 아래로 쌓이도록 끝에 append
+    arr.forEach(function(f){ var item={file:f,row:null}; var d=mkRow(item); item.row=d; list.appendChild(d); queue.push(item); });
     pump();
   }
   function initRecad(){
