@@ -518,7 +518,7 @@
 </div>
 
 <div class="ov" id="ov-cust">
-  <div class="modal" style="max-width:540px">
+  <div class="modal" style="max-width:760px">
     <div class="modal-h"><h3>고객 등록</h3><button data-close>×</button></div>
     <div class="modal-b">
       <div id="c-recbox" style="margin-bottom:14px;padding:10px 12px;border:1px dashed #cbb89a;border-radius:10px;background:#faf7f0"><label style="font-weight:600;display:block;margin-bottom:6px">🎤 통화녹음으로 자동 채우기</label><input type="file" id="c-recfile" accept="audio/*,.m4a,.mp3,.wav,.amr,.aac,.ogg" style="font-size:13px"><div id="c-recmsg" style="font-size:12px;color:#7a6f5a;margin-top:6px">녹음 파일을 선택하면 파일명에서 연락처·문의일을 채우고, 통화 내용을 분석해 항목을 자동 입력합니다.</div></div><div id="c-actions" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
@@ -544,8 +544,8 @@
         <div class="fg"><label>이동 기한</label><select id="c-time"><option value="">선택</option><option>3개월 내 이사</option><option>6개월 내 여유</option><option>매물 좋으면 즉시</option><option>미정</option></select></div>
       </div>
       <div class="fg-row"><div class="fg"><label>문의일</label><input id="c-inq" type="date"></div><div class="fg"><label>입주 희망일</label><input id="c-move" type="date"></div></div>
-      <div class="fg"><label>실행 액션(요약)</label><textarea id="c-action" rows="2" placeholder="다음 할 일 한 줄 요약 (예: 역삼 84㎡ 3건 추려 문자 발송, 금요일 현장안내 예약)"></textarea></div>
-      <div class="fg"><label>메모(통화 원문)</label><textarea id="c-note" rows="3" placeholder="통화 녹음 원문·요약이 여기에 누적됩니다"></textarea></div>
+      <div class="fg"><label>실행 액션(요약)</label><textarea id="c-action" rows="3" placeholder="다음 할 일 한 줄 요약 (예: 역삼 84㎡ 3건 추려 문자 발송, 금요일 현장안내 예약)"></textarea></div>
+      <div class="fg"><label>메모(통화 원문) · 시간순 정렬</label><textarea id="c-note" rows="14" style="min-height:300px;line-height:1.6;font-size:14px;resize:vertical" placeholder="통화 녹음 원문·요약이 시간순으로 누적됩니다"></textarea></div>
       <div class="fg"><label>수정 히스토리</label><div id="c-history" style="font-size:12px;color:var(--ink-soft);background:var(--paper);border-radius:8px;padding:8px 10px;max-height:120px;overflow:auto">-</div></div>
     </div>
     <div class="modal-f"><button class="btn ghost danger" id="del-cust" style="display:none;margin-right:auto">삭제</button><button class="btn ghost" data-close>취소</button><button class="btn" id="save-cust">저장</button></div>
@@ -2255,7 +2255,7 @@ if(sbc) cloudInitSync();
       found.recSigs=prevSigs.concat([key]);
       found.recCount=(+found.recCount||0)+1;
       var note=buildNote(x,transcript,parsed,found.recCount);
-      found.note=found.note?(found.note+'\n\n'+note):note;
+      found.note=sortNoteByTime(found.note?(found.note+'\n\n'+note):note);
       if(x.side)found.side=x.side; // 통화로 입장이 새로 파악되면 갱신
       if(!found.area&&x.region)found.area=x.region;
       if(!found.fund&&x.fund)found.fund=x.fund;
@@ -2285,5 +2285,4 @@ if(sbc) cloudInitSync();
     var _pf=parseFn(item.file.name);
     d.querySelector('.nm').textContent=(_pf.dt?('🕒 '+_pf.dt+'  '):'')+item.file.name;
     d.querySelector('.st').textContent='대기 중';
-    d.querySelector('.del').onclick=function(ev){ ev.stopPropagation(); var qi=queue.indexOf(item); if(qi>-1)queue.splice(qi,1); d.remove(); };
-    d.querySelector('.retry').onclick=function(ev){ ev.stopPropagation(); d.querySelector('.retry').style.display
+    d.querySelector('.del').onclick=function(ev){ ev.stopPropagation(); var qi=queue.indexOf(item); if(qi>-1)queue.splice(qi,1); d.remove(); }
