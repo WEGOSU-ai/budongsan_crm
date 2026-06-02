@@ -527,7 +527,7 @@
         <div class="fg"><label>연락처</label><input id="c-phone" type="tel" placeholder="010-0000-0000"></div>
       </div>
       <div class="fg-row">
-        <div class="fg"><label>희망 거래유형</label><select id="c-type"><option value="sale">매매</option><option value="jeonse">전세</option><option value="rent">월세</option><option value="invest">투자</option></select></div>
+        <div class="fg"><label>희망 거래유형</label><select id="c-type"><option value="sale|buy">매매·매수(살 분)</option><option value="sale|sell">매매·매도(팔 분)</option><option value="jeonse|tenant">전세·임차(구할 분)</option><option value="jeonse|landlord">전세·임대(놓을 분)</option><option value="rent|tenant">월세·임차(구할 분)</option><option value="rent|landlord">월세·임대(놓을 분)</option><option value="invest|buy">투자</option></select></div>
         <div class="fg"><label>고객단계</label><select id="c-stage"><option value="1">신규문의</option><option value="2">현장안내</option><option value="3">계약검토</option><option value="4">계약</option><option value="5">사후관리</option></select></div>
       </div>
       <div class="fg"><label>희망 지역(동)</label><input id="c-area" placeholder="예) 역삼동"></div>
@@ -544,7 +544,8 @@
         <div class="fg"><label>이동 기한</label><select id="c-time"><option value="">선택</option><option>3개월 내 이사</option><option>6개월 내 여유</option><option>매물 좋으면 즉시</option><option>미정</option></select></div>
       </div>
       <div class="fg-row"><div class="fg"><label>문의일</label><input id="c-inq" type="date"></div><div class="fg"><label>입주 희망일</label><input id="c-move" type="date"></div></div>
-      <div class="fg"><label>메모</label><textarea id="c-note" rows="2" placeholder="우선순위, 가족구성, 희망 단지 등"></textarea></div>
+      <div class="fg"><label>실행 액션(요약)</label><textarea id="c-action" rows="2" placeholder="다음 할 일 한 줄 요약 (예: 역삼 84㎡ 3건 추려 문자 발송, 금요일 현장안내 예약)"></textarea></div>
+      <div class="fg"><label>메모(통화 원문)</label><textarea id="c-note" rows="3" placeholder="통화 녹음 원문·요약이 여기에 누적됩니다"></textarea></div>
       <div class="fg"><label>수정 히스토리</label><div id="c-history" style="font-size:12px;color:var(--ink-soft);background:var(--paper);border-radius:8px;padding:8px 10px;max-height:120px;overflow:auto">-</div></div>
     </div>
     <div class="modal-f"><button class="btn ghost danger" id="del-cust" style="display:none;margin-right:auto">삭제</button><button class="btn ghost" data-close>취소</button><button class="btn" id="save-cust">저장</button></div>
@@ -656,6 +657,9 @@
 <script>
 const TODAY=(function(){const d=new Date();const z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());})();
 const TYPE={sale:'매매',jeonse:'전세',rent:'월세',invest:'투자'};
+const SIDE={buy:'매수',sell:'매도',landlord:'임대',tenant:'임차'};
+function defSide(t){ return (t==='sale'||t==='invest')?'buy':'tenant'; }
+function sideLabel(c){ const s=c&&c.side?c.side:defSide(c?c.type:'sale'); return SIDE[s]||''; }
 const PSTATUS={1:'접수',2:'광고중',3:'계약진행',5:'거래완료'};
 const CSTAGE={1:'신규문의',2:'현장안내',3:'계약검토',4:'계약',5:'사후관리'};
 const NEAR=[['역삼동','삼성동','대치동','선릉'],['서초동','반포동','잠원동'],['목동','신정동','당산동']];
@@ -782,7 +786,7 @@ function topCustsFor(p,n){ return custs.filter(c=>c.type===p.type&&!c.closed).ma
 function nudgeBatch(){ const list=custs.filter(c=>!c.closed&&c.stage<=2); if(!list.length){alert('재접촉 대상(미계약·미종료 초기 고객)이 없습니다.');return;} const take=list.slice(0,30); document.querySelector('#ov-cmsg .modal-h h3').textContent='💤 재접촉 넛지 메시지'; $('#cmsg-text').value='[재접촉 넛지 — 대상 '+list.length+'명 중 '+take.length+'명]\n각 고객에게 개별로 보내세요. 반응 오는 고객만 집중하면 됩니다.\n\n'+take.map(c=>'■ '+c.name+' ('+mphone(c.phone)+')\n'+stageMsg(c)).join('\n\n──────────\n\n'); openOv('ov-cmsg'); }
 function statusTag(s){ return `<span class="tag s${s}">${PSTATUS[s]||'-'}</span>`; }
 function stageTag(s){ return `<span class="tag s${s}">${CSTAGE[s]||'-'}</span>`; }
-function typeTag(t){ return `<span class="tag ${t}">${TYPE[t]||'-'}</span>`; }
+function typeTag(t,side){ const sl=side?(SIDE[side]||''):''; return `<span class="tag ${t}">${TYPE[t]||'-'}${sl?'·'+sl:''}</span>`; }
 function kindBadge(p){ return p.kind?`<span class="tag kind">${esc(p.kind)}</span>`:''; }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function digits(s){ return String(s||'').replace(/\D/g,''); }
@@ -1287,8 +1291,8 @@ function renderCusts(){
     <div class="row" data-cid="${c.id}">
       <span class="idx">${i+1}</span>
       <div class="main">
-        <div class="title">${typeTag(c.type)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(c.name)}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span></div>
-        <div class="meta">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)} · 입주희망 ${fmtD(c.move)||'-'}${c.fund?' · '+esc(c.fund):''}${c.timeline?' · '+esc(c.timeline):''}${c.note?' · '+esc(c.note):''}</div>${(needTags(c).length||leadHot(c))?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}${leadHot(c)?'<span class="lead">🔥 진성</span>':''}</div>`:''}
+        <div class="title">${typeTag(c.type,c.side)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(c.name)}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span></div>
+        <div class="meta">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)} · 입주희망 ${fmtD(c.move)||'-'}${c.fund?' · '+esc(c.fund):''}${c.timeline?' · '+esc(c.timeline):''}${c.action?' · <b style="color:var(--brand)">▶ '+esc(c.action)+'</b>':''}${c.note?' · '+esc(c.note):''}</div>${(needTags(c).length||leadHot(c))?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}${leadHot(c)?'<span class="lead">🔥 진성</span>':''}</div>`:''}
       </div><div style="text-align:right;display:flex;flex-direction:column;gap:5px;align-items:flex-end">${digits(c.phone)?`<a class="pbtn" href="tel:${digits(c.phone)}" onclick="event.stopPropagation()" title="전화 걸기" style="text-decoration:none">📞 통화</a>`:''}<button class="pbtn" data-cclose="${c.id}" onclick="event.stopPropagation()" title="안내 종료/재개">${c.closed?'↩ 재개':'🔚 종료'}</button><div class="edit-hint">✎ 수정</div></div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>조건에 맞는 고객이 없습니다.</div>';
   $$('#cust-list .row').forEach(r=>r.onclick=()=>fillCust(custs.find(x=>x.id===+r.dataset.cid)));
   $$('#cust-list [data-cclose]').forEach(b=>b.onclick=ev=>{ev.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.cclose); if(!c.closed){ c.closed=true; c.stageAtClose=c.stage; pushHist(c,'안내 종료 ('+(CSTAGE[c.stage]||'')+' 단계에서)'); } else { c.closed=false; pushHist(c,'안내 재개'); } renderAll();});
@@ -1614,7 +1618,7 @@ function dlVcard(c){ const a=document.createElement('a'); a.href=URL.createObjec
 function nowStamp(){ const d=new Date(),z=n=>String(n).padStart(2,'0'); return TODAY+' '+z(d.getHours())+':'+z(d.getMinutes()); }
 function pushHist(c,desc){ if(!c.history)c.history=[]; c.history.unshift({ts:nowStamp(),desc}); }
 function renderCustHistory(c){ const box=$('#c-history'); if(!box)return; const h=(c&&c.history)||[]; box.innerHTML=h.length?h.map(x=>'· '+x.ts+' — '+esc(x.desc)).join('<br>'):'-'; }
-function custDiff(o,n){ const f={name:'이름',phone:'연락처',type:'거래',stage:'단계',area:'지역',min:'예산하한',max:'예산상한',size:'평형',rent:'월세',fund:'자금',timeline:'기한',move:'입주일',note:'메모'}; const ch=[]; for(const k in f){ if(String(o[k]==null?'':o[k])!==String(n[k]==null?'':n[k])) ch.push(f[k]); } return ch; }
+function custDiff(o,n){ const f={name:'이름',phone:'연락처',type:'거래',side:'입장',stage:'단계',area:'지역',min:'예산하한',max:'예산상한',size:'평형',rent:'월세',fund:'자금',timeline:'기한',move:'입주일',note:'메모',action:'실행액션'}; const ch=[]; for(const k in f){ if(String(o[k]==null?'':o[k])!==String(n[k]==null?'':n[k])) ch.push(f[k]); } return ch; }
 function renderCustActions(c){
   const box=$('#c-actions'); if(!box)return;
   if(!c){ box.style.display='none'; box.innerHTML=''; return; }
@@ -1743,18 +1747,22 @@ function fillCust(c){
   document.querySelector('#ov-cust .modal-h h3').textContent=c?'고객 수정':'고객 등록';
   $('#del-cust').style.display=c?'':'none';
   $('#c-name').value=c?c.name:''; $('#c-phone').value=c?c.phone||'':'';
-  $('#c-type').value=c?c.type:'sale'; $('#c-stage').value=c?c.stage:1;
+  /* 거래유형 select는 'type|side' 합성값. side 없으면 기본값으로 매핑 */
+  var _combo=c?((c.type||'sale')+'|'+(c.side||defSide(c.type))):'sale|buy';
+  var _sel=$('#c-type'); _sel.value=_combo; if(!_sel.value)_sel.value=(c?c.type:'sale')+'|'+defSide(c?c.type:'sale');
+  $('#c-stage').value=c?c.stage:1;
   $('#c-area').value=c?c.area:''; $('#c-min').value=c&&c.min?(+c.min).toLocaleString():''; $('#c-max').value=c&&c.max?(+c.max).toLocaleString():'';
-  $('#c-size').value=c&&c.size?c.size:''; $('#c-rent').value=c&&c.rent?c.rent:''; $('#c-fund').value=c?c.fund||'':''; $('#c-time').value=c?c.timeline||'':''; $('#c-inq').value=c?(c.inq||c.created||''):''; $('#c-move').value=c?c.move||'':''; $('#c-note').value=c?c.note||'':'';
+  $('#c-size').value=c&&c.size?c.size:''; $('#c-rent').value=c&&c.rent?c.rent:''; $('#c-fund').value=c?c.fund||'':''; $('#c-time').value=c?c.timeline||'':''; $('#c-inq').value=c?(c.inq||c.created||''):''; $('#c-move').value=c?c.move||'':''; $('#c-note').value=c?c.note||'':''; $('#c-action').value=c?c.action||'':'';
   renderCustActions(c); renderCustHistory(c);
   openOv('ov-cust');
 }
 $('#add-cust').onclick=()=>fillCust(null);
 $('#save-cust').onclick=()=>{
   const name=$('#c-name').value.trim(); if(!name){alert('이름을 입력하세요');return;}
-  const data={name,phone:$('#c-phone').value,type:$('#c-type').value,stage:+$('#c-stage').value,
+  const _cv=String($('#c-type').value||'sale|buy').split('|'); const _type=_cv[0]||'sale'; const _side=_cv[1]||defSide(_type);
+  const data={name,phone:$('#c-phone').value,type:_type,side:_side,stage:+$('#c-stage').value,
     area:$('#c-area').value.trim(),min:+digits($('#c-min').value)||0,max:+digits($('#c-max').value)||0,size:+$('#c-size').value||0,
-    rent:+$('#c-rent').value||0,fund:$('#c-fund').value,timeline:$('#c-time').value,inq:$('#c-inq').value,move:$('#c-move').value,note:$('#c-note').value.trim()};
+    rent:+$('#c-rent').value||0,fund:$('#c-fund').value,timeline:$('#c-time').value,inq:$('#c-inq').value,move:$('#c-move').value,note:$('#c-note').value.trim(),action:$('#c-action').value.trim()};
   if(data.type==='rent') data.max=data.min; /* 월세는 보증금 단일화(환산보증금 계산용) */
   if(editCust){ const c=custs.find(x=>x.id===editCust); const ch=custDiff(c,data); Object.assign(c,data); pushHist(c, ch.length?('수정: '+ch.join(', ')):'저장'); }
   else { const c={id:cid++,...data,created:TODAY,closed:false,history:[]}; pushHist(c,'신규 등록'); custs.push(c); }
@@ -2001,8 +2009,8 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('crm_data')||'null
 /* ============ ☁ 클라우드 동기화 (Supabase) ============ */
 function pPropToDb(p){return{ext_id:String(p.id),code:p.code||null,kind:p.kind||null,deal_type:p.type,status:p.status,name:p.name,area:p.area||null,soje:p.soje||null,jibun:p.jibun||null,floor:p.floor||null,pyeong_type:p.pyeong||null,dong:p.dong||null,size_m2:p.size||null,supply_m2:p.supply||null,price:p.price||null,rent:p.rent||null,rooms:p.rooms||null,baths:p.baths||null,mgmt:p.mgmt||null,heat:p.heat||null,units:p.units||null,build_year:p.buildYear||null,builder:p.builder||null,approve_date:p.approve||null,zone:p.zone||null,use_type:p.useType||null,parking:p.parking||null,biz_now:p.bizNow||null,biz_rec:p.bizRec||null,power:p.power||null,dir:p.dir||null,move_date:p.move||null,seller_phone:p.sPhone||null,buyer_phone:p.bPhone||null,lessor_phone:p.lrPhone||null,lessee_phone:p.lePhone||null,agent:p.agent||null,agent_phone:p.agentPhone||null,mobile:p.mobile||null,agent_id:p.agentId||null,note:p.note||null,memo:p.memo||null,open_date:p.reg||null,market_price:p.marketPrice||null};}
 function dbToProp(r,id){return{id,code:r.code||'',kind:r.kind||'',type:r.deal_type||'sale',status:r.status||2,name:r.name||'',area:r.area||'',soje:r.soje||'',jibun:r.jibun||'',floor:r.floor||'',pyeong:r.pyeong_type||'',dong:r.dong||'',size:+r.size_m2||0,supply:+r.supply_m2||0,price:+r.price||0,rent:+r.rent||0,rooms:r.rooms||'',baths:r.baths||'',mgmt:r.mgmt||'',heat:r.heat||'',units:r.units||'',buildYear:r.build_year||'',builder:r.builder||'',approve:r.approve_date||'',zone:r.zone||'',useType:r.use_type||'',parking:r.parking||'',bizNow:r.biz_now||'',bizRec:r.biz_rec||'',power:r.power||'',dir:r.dir||'-',move:r.move_date||'',sPhone:r.seller_phone||'',bPhone:r.buyer_phone||'',lrPhone:r.lessor_phone||'',lePhone:r.lessee_phone||'',agent:r.agent||'',agentPhone:r.agent_phone||'',mobile:r.mobile||'',agentId:r.agent_id||'',note:r.note||'',memo:r.memo||'',reg:r.open_date||TODAY,marketPrice:r.market_price||''};}
-function cToDb(c){return{ext_id:String(c.id),name:c.name,phone:c.phone||null,deal_type:c.type,stage:c.stage,area:c.area||null,budget_min:c.min||null,budget_max:c.max||null,size_m2:c.size||null,rent:c.rent||null,fund:c.fund||null,timeline:c.timeline||null,inq_date:c.inq||c.created||null,move_date:c.move||null,note:c.note||null,closed:!!c.closed,history:c.history||[]};}
-function dbToC(r,id){return{id,name:r.name||'',phone:r.phone||'',type:r.deal_type||'sale',stage:r.stage||1,area:r.area||'',min:+r.budget_min||0,max:+r.budget_max||0,size:+r.size_m2||0,rent:+r.rent||0,fund:r.fund||'',timeline:r.timeline||'',inq:r.inq_date||'',created:r.inq_date||TODAY,move:r.move_date||'',note:r.note||'',closed:!!r.closed,history:Array.isArray(r.history)?r.history:[]};}
+function cToDb(c){return{ext_id:String(c.id),name:c.name,phone:c.phone||null,deal_type:c.type,side:c.side||null,stage:c.stage,area:c.area||null,budget_min:c.min||null,budget_max:c.max||null,size_m2:c.size||null,rent:c.rent||null,fund:c.fund||null,timeline:c.timeline||null,inq_date:c.inq||c.created||null,move_date:c.move||null,note:c.note||null,action_memo:c.action||null,rec_sigs:c.recSigs||[],rec_count:c.recCount||0,closed:!!c.closed,history:c.history||[]};}
+function dbToC(r,id){return{id,name:r.name||'',phone:r.phone||'',type:r.deal_type||'sale',side:r.side||defSide(r.deal_type||'sale'),stage:r.stage||1,area:r.area||'',min:+r.budget_min||0,max:+r.budget_max||0,size:+r.size_m2||0,rent:+r.rent||0,fund:r.fund||'',timeline:r.timeline||'',inq:r.inq_date||'',created:r.inq_date||TODAY,move:r.move_date||'',note:r.note||'',action:r.action_memo||'',recSigs:Array.isArray(r.rec_sigs)?r.rec_sigs:[],recCount:+r.rec_count||0,closed:!!r.closed,history:Array.isArray(r.history)?r.history:[]};}
 function tToDb(t){return{ext_id:String(t.id),descr:t.desc,due_date:t.due||null,due_time:t.time||null,cust_ext:t.custId?String(t.custId):null,phone:t.phone||null,done:!!t.done};}
 function clStatus(u){ const st=$('#cl-status'); if(!sbc){ if(st)st.textContent='클라우드 라이브러리 로드 실패(인터넷 확인).'; return; } if(u){ if(st)st.innerHTML='로그인됨: <b>'+esc(u.email||'')+'</b> — 저장 시 자동 동기화됩니다.'; const lo=$('#cl-logout'); if(lo)lo.style.display=''; } else { if(st)st.textContent='로그인하면 여러 기기에서 같은 데이터를 쓸 수 있습니다.'; const lo=$('#cl-logout'); if(lo)lo.style.display='none'; } }
 async function clRefresh(){ if(!sbc)return; try{ const {data}=await sbc.auth.getUser(); clStatus(data&&data.user); }catch(e){ clStatus(null); } }
@@ -2182,9 +2190,10 @@ if(sbc) cloudInitSync();
     if(!out.date){var tmp=base;if(out.phone){tmp=tmp.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,' ');}
       var ym=tmp.match(/(?:^|[^0-9])(\d{2})(\d{2})(\d{2})(?:[^0-9]|$)/);
       if(ym){var m2=+ym[2],d2=+ym[3];if(m2>=1&&m2<=12&&d2>=1&&d2<=31){out.date='20'+ym[1]+'-'+ym[2]+'-'+ym[3];}}}
-    // 통화 시각(정렬용): 파일명에서 14자리(YYYYMMDDhhmmss) 우선, 없으면 날짜+시:분 조합
+    // 통화 시각(정렬·중복키·표시용): 파일명에서 14자리(YYYYMMDDhhmmss) 우선
     var full=base.match(/(20\d{2})[-.\s_]?(\d{2})[-.\s_]?(\d{2})[-.\s_T]*(\d{2})[-.\s_:]?(\d{2})[-.\s_:]?(\d{2})?/);
-    if(full){out.ts=+(full[1]+full[2]+full[3]+full[4]+full[5]+(full[6]||'00'));}
+    out.hm='';out.dt='';
+    if(full){out.ts=+(full[1]+full[2]+full[3]+full[4]+full[5]+(full[6]||'00'));out.hm=full[4]+':'+full[5];out.dt=full[1]+'-'+full[2]+'-'+full[3]+' '+full[4]+':'+full[5];}
     else if(out.date){out.ts=+(out.date.replace(/-/g,'')+'000000');}
     var t=base.replace(/통화\s*녹음|녹음파일|녹음|recording|voice/gi,' ');
     if(out.phone){t=t.replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/,' ');}
@@ -2192,47 +2201,53 @@ if(sbc) cloudInitSync();
     var nm=t.match(/[가-힣]{2,5}/);if(nm){out.name=nm[0];}
     return out;
   }
-  function buildNote(x,transcript,date){
-    var head='['+(date||TODAY)+' 통화]';
+  function buildNote(x,transcript,parsed,nth){
+    var when=parsed.dt||parsed.date||TODAY;
+    var head='['+when+' 통화'+(nth?' #'+nth:'')+']';
     var summ=x.summary?('요약: '+x.summary):'';
     var body=transcript?('전문: '+transcript):'';
     return [head,summ,body].filter(Boolean).join('\n');
   }
-  function sig(transcript,date){
-    // 중복 판정용 지문: 통화 전문 앞부분(공백제거)으로 비교. 전문 없으면 날짜로.
-    var t=String(transcript||'').replace(/\s/g,'');
-    return t?t.slice(0,80):('DATE:'+(date||''));
+  // 중복키: 전화번호 + 통화시각(파일명 바뀌어도 동일). 시각 없으면 전화+날짜.
+  function recKey(parsed){
+    var pd=dgt(parsed.phone);
+    var when=parsed.ts?String(parsed.ts):(parsed.date||'');
+    return pd+'@'+when;
   }
+  function defSideOf(type){ return (type==='sale'||type==='invest')?'buy':'tenant'; }
   function upsertRec(parsed,x,transcript){
     var pd=dgt(parsed.phone);
-    var note=buildNote(x,transcript,parsed.date);
-    var mark=sig(transcript,parsed.date);
+    var key=recKey(parsed);
     var found=pd?custs.find(function(c){return dgt(c.phone)===pd;}):null;
+    var type=(x.type&&TYPEMAP[x.type])?TYPEMAP[x.type]:'sale';
+    var side=x.side||defSideOf(type);
     if(found){
-      // 같은 번호에 같은 내용(또는 같은 날짜)이 이미 있으면 추가하지 않음
+      // 전화번호+통화시각이 같으면 중복 → 건너뜀 (파일명 변경 무관)
       var prevSigs=Array.isArray(found.recSigs)?found.recSigs:[];
-      var dupByNote=found.note&&transcript&&found.note.replace(/\s/g,'').indexOf(mark)>-1;
-      if(prevSigs.indexOf(mark)>-1||dupByNote){
-        return {kind:'중복(건너뜀)',name:found.name||parsed.name||'(미확인)',id:found.id,dup:true};
+      if(prevSigs.indexOf(key)>-1){
+        return {kind:'중복(건너뜀)',name:found.name||parsed.name||'(미확인)',id:found.id,dup:true,time:parsed.hm};
       }
-      found.recSigs=prevSigs.concat([mark]);
+      found.recSigs=prevSigs.concat([key]);
+      found.recCount=(+found.recCount||0)+1;
+      var note=buildNote(x,transcript,parsed,found.recCount);
       found.note=found.note?(found.note+'\n\n'+note):note;
+      if(x.side)found.side=x.side; // 통화로 입장이 새로 파악되면 갱신
       if(!found.area&&x.region)found.area=x.region;
       if(!found.fund&&x.fund)found.fund=x.fund;
       if(!found.timeline&&x.timing)found.timeline=x.timing;
       if(!found.size&&x.size)found.size=+x.size||0;
       if(!found.min&&x.budMin)found.min=+x.budMin||0;
       if(!found.max&&x.budMax)found.max=+x.budMax||0;
-      pushHist(found,'통화녹음 자동입력(기존)');
-      return {kind:'기존 보강',name:found.name||parsed.name||'(미확인)',id:found.id};
+      pushHist(found,'통화녹음 자동입력(업데이트 · 통화 '+found.recCount+'번째)');
+      return {kind:'기존 보강(통화 '+found.recCount+'번째)',name:found.name||parsed.name||'(미확인)',id:found.id,time:parsed.hm};
     }
-    var type=(x.type&&TYPEMAP[x.type])?TYPEMAP[x.type]:'sale';
-    var c={id:cid++,name:parsed.name||'(미확인)',phone:parsed.phone||'',type:type,stage:1,
+    var note=buildNote(x,transcript,parsed,1);
+    var c={id:cid++,name:parsed.name||'(미확인)',phone:parsed.phone||'',type:type,side:side,stage:1,
       area:x.region||'',min:+x.budMin||0,max:+x.budMax||0,size:+x.size||0,rent:+x.monthly||0,
-      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:'',note:note,closed:false,history:[],recSigs:[mark]};
-    pushHist(c,'통화녹음 자동입력(신규)');
+      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:'',note:note,action:'',closed:false,history:[],recSigs:[key],recCount:1};
+    pushHist(c,'통화녹음 자동입력(신규 · 통화 1번째)');
     custs.push(c);
-    return {kind:'신규 등록',name:c.name,id:c.id};
+    return {kind:'신규 등록',name:c.name,id:c.id,time:parsed.hm};
   }
   function mkRow(item){
     var d=document.createElement('div');
@@ -2242,7 +2257,8 @@ if(sbc) cloudInitSync();
       +'<span class="st" style="color:var(--ink-soft);flex-shrink:0"></span>'
       +'<button class="retry" title="다시 시도" style="display:none;flex-shrink:0;border:none;background:none;cursor:pointer;font-size:15px;padding:2px 4px">↻</button>'
       +'<button class="del" title="목록에서 제거" style="flex-shrink:0;border:none;background:none;cursor:pointer;font-size:15px;color:var(--ink-soft);padding:2px 4px">✖</button>';
-    d.querySelector('.nm').textContent=item.file.name;
+    var _pf=parseFn(item.file.name);
+    d.querySelector('.nm').textContent=(_pf.dt?('🕒 '+_pf.dt+'  '):'')+item.file.name;
     d.querySelector('.st').textContent='대기 중';
     d.querySelector('.del').onclick=function(ev){ ev.stopPropagation(); var qi=queue.indexOf(item); if(qi>-1)queue.splice(qi,1); d.remove(); };
     d.querySelector('.retry').onclick=function(ev){ ev.stopPropagation(); d.querySelector('.retry').style.display='none'; d._cid=null; d.style.cursor='default'; setRow(d,'⏳','재시도 대기'); queue.push(item); pump(); };
@@ -2256,11 +2272,11 @@ if(sbc) cloudInitSync();
     if(!item){ if(totalN){ renderAll(); var s=$id('rec-summary'); if(s)s.textContent='완료: 총 '+totalN+'건 · 처리된 줄을 누르면 고객으로 이동'; totalN=0;doneN=0; } return; }
     busy=true; var file=item.file,d=item.row;
     var parsed=parseFn(file.name);
-    setRow(d,'🔎','분석 중… '+(parsed.name||'-')+' / '+(parsed.phone||'-'));
+    setRow(d,'🔎','분석 중… '+(parsed.hm?parsed.hm+' ':'')+(parsed.name||'-')+' / '+(parsed.phone||'-'));
     var fd=new FormData();fd.append('audio',file);
     fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
       if(!j||!j.ok){ setRow(d,'⚠️','변환 실패: '+((j&&j.message)||'서버 오류'),'#c0392b'); d.querySelector('.retry').style.display=''; }
-      else{ var res=upsertRec(parsed,j.fields||{},j.transcript||''); d._cid=res.id; d.style.cursor='pointer'; setRow(d, res.dup?'⏭️':'✅', res.kind+': '+res.name+' ('+(parsed.phone||'번호없음')+') · 클릭→고객', res.dup?'#b8860b':'var(--brand)'); }
+      else{ var res=upsertRec(parsed,j.fields||{},j.transcript||''); d._cid=res.id; d.style.cursor='pointer'; setRow(d, res.dup?'⏭️':'✅', (res.time?res.time+' ':'')+res.kind+': '+res.name+' ('+(parsed.phone||'번호없음')+') · 클릭→고객', res.dup?'#b8860b':'var(--brand)'); }
     }).catch(function(){ setRow(d,'❌','변환 서버 연결 안 됨 — PC에서 서버를 켜주세요','#c0392b'); d.querySelector('.retry').style.display=''; })
     .finally(function(){ doneN++; var s=$id('rec-summary'); if(s)s.textContent='처리 중… '+doneN+' / '+totalN; busy=false; pump(); });
   }
