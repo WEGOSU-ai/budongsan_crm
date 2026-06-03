@@ -338,6 +338,7 @@
     <button data-v="tasks">할일·알림</button>
   </nav>
   <div class="who">
+    <span class="hbtn" id="hdr-clock" title="현재 시각" style="cursor:default;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap"></span>
     <span class="nm" id="member-name"></span>
     <span class="hbtn" id="sync-badge" title="클라우드 자동 동기화 상태" style="display:none;cursor:default"></span>
     <button class="hbtn" id="mask-toggle" title="개인정보(전화·이름·호수) 가리기">🔒 가리기</button>
@@ -704,7 +705,7 @@ let tasks=[
 ];
 let pid=6,cid=5,tid=4;
 let matchMode='prop', selected=null;
-let calMode='month', calCur=new Date(2026,4,29), calEv={};
+let calMode='month', calCur=new Date(), calEv={};
 let curView='dash';
 let editProp=null, editCust=null, editTask=null;
 let custFilter={type:'all',stage:'all'};
@@ -1501,6 +1502,7 @@ $('#dash-type').onchange=e=>{dashType=e.target.value;renderDash();};
 $('#dash-sort').onclick=()=>{ const seq=['desc','asc','pdesc','pasc']; dashSort=seq[(seq.indexOf(dashSort)+1)%4]; const lbl={desc:'최신순 ↓',asc:'오래된순 ↑',pdesc:'금액높은순 ↓',pasc:'금액낮은순 ↑'}; $('#dash-sort').textContent=lbl[dashSort]; renderDash(); };
 
 $('#mask-toggle').onclick=()=>{ maskOn=!maskOn; $('#mask-toggle').classList.toggle('on',maskOn); $('#mask-toggle').innerHTML=maskOn?'🔓 표시':'🔒 가리기'; renderAll(); };
+(function(){ var DOWK=['일','월','화','수','목','금','토']; var el=document.getElementById('hdr-clock'); function tick(){ if(!el)return; var d=new Date(); var z=n=>String(n).padStart(2,'0'); el.textContent='🕐 '+d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+' ('+DOWK[d.getDay()]+') '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds()); } tick(); setInterval(tick,1000); })();
 
 function curViewEl(){ return $('#v-'+curView); }
 async function copyImage(el){
@@ -2319,9 +2321,3 @@ if(sbc) cloudInitSync();
     d.innerHTML='<span class="ic" style="flex-shrink:0">⏳</span>'
       +'<span class="nm" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>'
       +'<span class="st" style="color:var(--ink-soft);flex-shrink:0"></span>'
-      +'<button class="retry" title="다시 시도" style="display:none;flex-shrink:0;border:none;background:none;cursor:pointer;font-size:15px;padding:2px 4px">↻</button>'
-      +'<button class="del" title="목록에서 제거" style="flex-shrink:0;border:none;background:none;cursor:pointer;font-size:15px;color:var(--ink-soft);padding:2px 4px">✖</button>';
-    var _pf=parseFn(item.file.name);
-    d.querySelector('.nm').textContent=(_pf.dt?('🕒 '+_pf.dt+'  '):'')+item.file.name;
-    d.querySelector('.st').textContent='대기 중';
-    d.querySel
