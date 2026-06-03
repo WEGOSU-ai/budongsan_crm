@@ -255,7 +255,9 @@
     header .logo span{display:none}
     header nav{display:none}
     header .who .nm{display:none}
+    header #hdr-clock{display:none}
     header .hbtn{padding:7px 9px}
+    .pcard .pmv button{font-size:12.5px;padding:7px 0}
     main{padding:14px 14px calc(78px + var(--safe-b))}
     .kpis{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
     .kpi{padding:13px 14px}
@@ -338,7 +340,7 @@
     <button data-v="tasks">할일·알림</button>
   </nav>
   <div class="who">
-    <span class="hbtn" id="hdr-clock" title="현재 시각" style="cursor:default;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap"></span>
+    <span id="hdr-clock" title="현재 시각" style="cursor:default;font-variant-numeric:tabular-nums;font-size:12px;color:#cdddd4;white-space:nowrap;border:none;padding:0 4px"></span>
     <span class="nm" id="member-name"></span>
     <span class="hbtn" id="sync-badge" title="클라우드 자동 동기화 상태" style="display:none;cursor:default"></span>
     <button class="hbtn" id="mask-toggle" title="개인정보(전화·이름·호수) 가리기">🔒 가리기</button>
@@ -522,7 +524,7 @@
 </div>
 
 <div class="ov" id="ov-cust">
-  <div class="modal" style="max-width:760px">
+  <div class="modal" style="max-width:620px">
     <div class="modal-h"><h3>고객 등록</h3><button data-close>×</button></div>
     <div class="modal-b">
       <div id="c-recbox" style="margin-bottom:14px;padding:10px 12px;border:1px dashed #cbb89a;border-radius:10px;background:#faf7f0"><label style="font-weight:600;display:block;margin-bottom:6px">🎤 통화녹음으로 자동 채우기</label><input type="file" id="c-recfile" accept="audio/*,.m4a,.mp3,.wav,.amr,.aac,.ogg" style="font-size:13px"><div id="c-recmsg" style="font-size:12px;color:#7a6f5a;margin-top:6px">녹음 파일을 선택하면 파일명에서 연락처·문의일을 채우고, 통화 내용을 분석해 항목을 자동 입력합니다.</div></div><div id="c-actions" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
@@ -565,7 +567,7 @@
         <div class="fg"><label>소유 메모(보유경위·세입자·대출 등)</label><input id="o-memo" placeholder="예) 전세 5억 세입자 2026.08 만기, 잔금 시 말소"></div>
       </div>
       <div class="fg"><label>실행 액션(요약)</label><textarea id="c-action" rows="3" placeholder="다음 할 일 한 줄 요약 (예: 역삼 84㎡ 3건 추려 문자 발송, 금요일 현장안내 예약)"></textarea></div>
-      <div class="fg"><label>메모(통화 원문) · 시간순 정렬</label><textarea id="c-note" rows="14" style="min-height:300px;line-height:1.6;font-size:14px;resize:vertical" placeholder="통화 녹음 원문·요약이 시간순으로 누적됩니다"></textarea></div>
+      <div class="fg"><label>메모(통화 원문) · 시간순 정렬</label><textarea id="c-note" rows="6" style="min-height:130px;line-height:1.55;font-size:13.5px;resize:vertical" placeholder="통화 녹음 원문·요약이 시간순으로 누적됩니다"></textarea></div>
       <div class="fg"><label>수정 히스토리</label><div id="c-history" style="font-size:12px;color:var(--ink-soft);background:var(--paper);border-radius:8px;padding:8px 10px;max-height:120px;overflow:auto">-</div></div>
     </div>
     <div class="modal-f"><button class="btn ghost danger" id="del-cust" style="display:none;margin-right:auto">삭제</button><button class="btn ghost" data-close>취소</button><button class="btn" id="save-cust">저장</button></div>
@@ -2319,5 +2321,4 @@ if(sbc) cloudInitSync();
     var d=document.createElement('div');
     d.style.cssText='display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:13px';
     d.innerHTML='<span class="ic" style="flex-shrink:0">⏳</span>'
-      +'<span class="nm" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>'
-      +'<span class="st" style="color:var(--ink-soft);flex-shrink:0"></span>'
+      +'<span class="nm" style="flex:1;overflow:hidden;text-overfl
