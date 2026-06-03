@@ -187,6 +187,9 @@
   .pcard .mv{display:flex;gap:6px;margin-top:8px}
   .pcard .mv button{flex:1;font-size:11px;padding:4px 0;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--ink-soft)}
   .pcard .mv button:hover{border-color:var(--brand);color:var(--brand)}
+  .pcard .pmv button{font-size:14px;font-weight:600;padding:9px 0;border-radius:8px}
+  .pcard .pmv [data-sms]{background:#eef4ff;border-color:#b9cdf2;color:#2f5fb3}
+  .pcard .pmv [data-alim]{background:#fef3d9;border-color:#e8d28f;color:#9a7b1e}
   .pcol.over{background:var(--brand-soft)}
 
   .task{display:flex;gap:10px;align-items:center;padding:13px 18px;border-bottom:1px solid var(--line)}
@@ -1340,7 +1343,7 @@ function renderCusts(){
     <div class="row" data-cid="${c.id}">
       <span class="idx">${i+1}</span>
       <div class="main">
-        <div class="title">${typeTag(c.type,c.side)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(dispName(c))}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span></div>
+        <div class="title">${typeTag(c.type,c.side)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(dispName(c))}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span>${c.recCount?` <span class="tag" style="background:#e9f0ff;color:#2f5fb3" title="이 번호로 녹음 통화 ${c.recCount}건이 이 고객에 누적됨">🎤 통화 ${c.recCount}</span>`:''}</div>
         <div class="meta">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)} · 입주희망 ${fmtD(c.move)||'-'}${c.fund?' · '+esc(c.fund):''}${c.timeline?' · '+esc(c.timeline):''}${c.action?' · <b style="color:var(--brand)">▶ '+esc(c.action)+'</b>':''}${c.note?' · '+esc(c.note):''}</div>${(needTags(c).length||leadHot(c))?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}${leadHot(c)?'<span class="lead">🔥 진성</span>':''}</div>`:''}
       </div><div style="text-align:right;display:flex;flex-direction:column;gap:5px;align-items:flex-end">${digits(c.phone)?`<a class="pbtn" href="tel:${digits(c.phone)}" onclick="event.stopPropagation()" title="전화 걸기" style="text-decoration:none">📞 통화</a>`:''}<button class="pbtn" data-cclose="${c.id}" onclick="event.stopPropagation()" title="안내 종료/재개">${c.closed?'↩ 재개':'🔚 종료'}</button><div class="edit-hint">✎ 수정</div></div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>조건에 맞는 고객이 없습니다.</div>';
   $$('#cust-list .row').forEach(r=>r.onclick=()=>fillCust(custs.find(x=>x.id===+r.dataset.cid)));
@@ -1389,9 +1392,9 @@ function renderPipe(){
           ${(c.fund||c.timeline||leadHot(c))?`<div class="dt">${c.fund?'💳 '+esc(c.fund):''}${c.timeline?((c.fund?' · ':'')+esc(c.timeline)):''}${leadHot(c)?' · <span style="color:var(--accent);font-weight:700">🔥진성</span>':''}</div>`:''}
           ${needTags(c).length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}</div>`:''}
           ${c.note?`<div class="dt" style="color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.note)}">📝 ${esc(noteBrief(c.note))}</div>`:''}
-          <div class="mv">${isC?`<button data-reopen="${c.id}">↩ 재개</button>`:`<button data-mv="${c.id}" data-dir="-1" ${s===1?'disabled style=opacity:.3':''}>‹ 이전</button>${s===5?`<button data-close="${c.id}">🔚 종료</button>`:`<button data-mv="${c.id}" data-dir="1">다음 ›</button>`}`}</div>
-          <div class="mv" style="margin-top:4px"><button data-ord="${c.id}" data-od="-1" ${i===0?'disabled style=opacity:.3':''}>▲ 위로</button><button data-ord="${c.id}" data-od="1" ${i===items.length-1?'disabled style=opacity:.3':''}>▼ 아래로</button></div>
-          <button class="pbtn" data-alim="${c.id}" onclick="event.stopPropagation()" style="width:100%;margin-top:5px">💬 솔라피 알림톡</button>
+          <div class="mv pmv">${isC?`<button data-reopen="${c.id}">↩ 재개</button>`:`<button data-mv="${c.id}" data-dir="-1" ${s===1?'disabled style=opacity:.3':''}>◀ 이전</button>${s===5?`<button data-close="${c.id}">🔚 종료</button>`:`<button data-mv="${c.id}" data-dir="1">다음 ▶</button>`}`}</div>
+          <div class="mv pmv" style="margin-top:5px"><button data-ord="${c.id}" data-od="-1" ${i===0?'disabled style=opacity:.3':''}>▲ 위로</button><button data-ord="${c.id}" data-od="1" ${i===items.length-1?'disabled style=opacity:.3':''}>▼ 아래</button></div>
+          <div class="mv pmv" style="margin-top:5px"><button data-sms="${c.id}" onclick="event.stopPropagation()">✉️ 문자</button><button data-alim="${c.id}" onclick="event.stopPropagation()">💬 알림톡</button></div>
         </div>`).join('')||'<div style="font-size:12px;color:var(--ink-soft);text-align:center;padding:14px 0">비어있음</div>'}</div>
     </div>`;
   }).join('');
@@ -1412,6 +1415,7 @@ function renderPipe(){
   $$('#pipe [data-close]').forEach(b=>b.onclick=e=>{e.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.close); if(c){ c.closed=true; c.stageAtClose=c.stage; pushHist(c,'안내 종료 ('+(CSTAGE[c.stage]||'')+' 단계에서)'); renderAll(); }});
   $$('#pipe [data-reopen]').forEach(b=>b.onclick=e=>{e.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.reopen); if(c){ c.closed=false; pushHist(c,'안내 재개'); renderAll(); }});
   $$('#pipe [data-alim]').forEach(b=>b.onclick=e=>{e.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.alim); if(c) sendMsg('solapi','alim',c,STAGE_TPL[c.stage]); });
+  $$('#pipe [data-sms]').forEach(b=>b.onclick=e=>{e.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.sms); if(c) sendMsg('solapi','sms',c,STAGE_TPL[c.stage]); });
   $$('#pipe [data-ord]').forEach(b=>b.onclick=e=>{e.stopPropagation();moveCardOrder(+b.dataset.ord,+b.dataset.od);});
   $$('#pipe [data-pexp]').forEach(b=>b.onclick=e=>{e.stopPropagation();exportStage(b.dataset.pexp);});
 }
@@ -2304,7 +2308,7 @@ if(sbc) cloudInitSync();
     var note=buildNote(x,transcript,parsed,1);
     var c={id:cid++,name:parsed.name||'(미확인)',phone:parsed.phone||'',type:type,side:side,stage:1,
       area:x.region||'',min:+x.budMin||0,max:+x.budMax||0,size:+x.size||0,rent:+x.monthly||0,
-      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:'',note:note,action:'',closed:false,history:[],recSigs:[key],recCount:1};
+      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:'',note:note,action:'',owner:null,closed:false,history:[],recSigs:[key],recCount:1};
     pushHist(c,'통화녹음 자동입력(신규 · 통화 1번째)');
     custs.push(c);
     return {kind:'신규 등록',name:c.name,id:c.id,time:parsed.hm};
@@ -2320,9 +2324,4 @@ if(sbc) cloudInitSync();
     var _pf=parseFn(item.file.name);
     d.querySelector('.nm').textContent=(_pf.dt?('🕒 '+_pf.dt+'  '):'')+item.file.name;
     d.querySelector('.st').textContent='대기 중';
-    d.querySelector('.del').onclick=function(ev){ ev.stopPropagation(); var qi=queue.indexOf(item); if(qi>-1)queue.splice(qi,1); d.remove(); };
-    d.querySelector('.retry').onclick=function(ev){ ev.stopPropagation(); d.querySelector('.retry').style.display='none'; d._cid=null; d.style.cursor='default'; setRow(d,'⏳','재시도 대기'); queue.push(item); pump(); };
-    d.onclick=function(){ if(d._cid&&typeof gotoCust==='function'){ switchView('custs'); var cc=custs.find(function(x){return x.id===d._cid;}); if(cc){ $id('cust-search').value=cc.name; } gotoCust(d._cid); } };
-    return d;
-  }
-  function setRow(d,icon,txt,color){d.querySelector('.ic').textContent=icon;var st=d.querySelector('.st');st.textCon
+    d.querySel
