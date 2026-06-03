@@ -34,17 +34,17 @@
   button{font-family:inherit;cursor:pointer;border:none;background:none}
   input,select,textarea{font-family:inherit}
 
-  header{background:var(--brand);color:#f4f1ea;padding:14px 22px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:50;box-shadow:0 2px 16px rgba(31,77,63,.25)}
+  header{background:var(--brand);color:#f4f1ea;padding:10px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50;box-shadow:0 2px 16px rgba(31,77,63,.25)}
   header .logo{display:flex;align-items:baseline;gap:9px}
   header .logo b{font-family:'Gowun Batang',serif;font-size:21px;letter-spacing:-.5px;font-weight:700}
   header .logo span{font-size:11px;color:#a9c4b6;letter-spacing:1.5px}
-  header nav{display:flex;gap:3px;margin-left:18px}
-  header nav button{color:#c9dbd2;padding:8px 14px;border-radius:8px;font-size:14px;font-weight:500;transition:.18s}
+  header nav{display:flex;gap:2px;margin-left:14px}
+  header nav button{color:#c9dbd2;padding:8px 13px;border-radius:8px;font-size:14.5px;font-weight:600;white-space:nowrap;transition:.18s}
   header nav button:hover{background:rgba(255,255,255,.08);color:#fff}
   header nav button.on{background:#f4f1ea;color:var(--brand);font-weight:600}
-  header .who{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:#a9c4b6}
-  header .who .nm{font-weight:600;color:#f4f1ea;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  header .hbtn{color:#d7e4dd;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:7px 10px;font-size:13px;transition:.15s;display:inline-flex;align-items:center;gap:5px}
+  header .who{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:13px;color:#a9c4b6}
+  header .who .nm{font-weight:600;color:#f4f1ea;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+  header .hbtn{color:#d7e4dd;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px 8px;font-size:12.5px;transition:.15s;display:inline-flex;align-items:center;gap:4px}
   header .hbtn:hover{background:rgba(255,255,255,.1);color:#fff}
   header .hbtn.on{background:var(--gold);color:#3a2a10;border-color:var(--gold);font-weight:700}
   header .who .av{width:32px;height:32px;border-radius:50%;background:var(--gold);color:#3a2a10;display:grid;place-items:center;font-weight:700;font-size:13px;flex-shrink:0}
@@ -340,14 +340,14 @@
     <button data-v="tasks">할일·알림</button>
   </nav>
   <div class="who">
-    <span id="hdr-clock" title="현재 시각" style="cursor:default;font-variant-numeric:tabular-nums;font-size:12px;color:#cdddd4;white-space:nowrap;border:none;padding:0 4px"></span>
+    <span id="hdr-clock" title="현재 시각" style="cursor:default;font-variant-numeric:tabular-nums;white-space:nowrap;border:none;padding:0 6px;line-height:1.15;text-align:right"><span id="clk-date" style="display:block;font-size:11px;color:#a9c4b6"></span><span id="clk-time" style="display:block;font-size:14px;font-weight:700;color:#f4f1ea"></span></span>
     <span class="nm" id="member-name"></span>
     <span class="hbtn" id="sync-badge" title="클라우드 자동 동기화 상태" style="display:none;cursor:default"></span>
-    <button class="hbtn" id="mask-toggle" title="개인정보(전화·이름·호수) 가리기">🔒 가리기</button>
+    <button class="hbtn" id="mask-toggle" title="개인정보(전화·이름·호수) 가리기">🔒</button>
     <button class="hbtn" id="cap-img" title="현재 메뉴 이미지 복사">🖼</button>
     <button class="hbtn" id="cap-pdf" title="현재 메뉴 PDF 저장">📄</button>
     <button class="hbtn" id="settings" title="부동산 정보 설정">⚙</button>
-    <button class="hbtn" id="logout" title="로그아웃" style="display:none">로그아웃</button>
+    <button class="hbtn" id="logout" title="로그아웃" style="display:none">⏻</button>
     <div class="av" id="avatar">법</div>
   </div>
 </header>
@@ -1503,8 +1503,8 @@ $('#dash-task-q').oninput=e=>{dashTaskQ=e.target.value;renderDash();};
 $('#dash-type').onchange=e=>{dashType=e.target.value;renderDash();};
 $('#dash-sort').onclick=()=>{ const seq=['desc','asc','pdesc','pasc']; dashSort=seq[(seq.indexOf(dashSort)+1)%4]; const lbl={desc:'최신순 ↓',asc:'오래된순 ↑',pdesc:'금액높은순 ↓',pasc:'금액낮은순 ↑'}; $('#dash-sort').textContent=lbl[dashSort]; renderDash(); };
 
-$('#mask-toggle').onclick=()=>{ maskOn=!maskOn; $('#mask-toggle').classList.toggle('on',maskOn); $('#mask-toggle').innerHTML=maskOn?'🔓 표시':'🔒 가리기'; renderAll(); };
-(function(){ var DOWK=['일','월','화','수','목','금','토']; var el=document.getElementById('hdr-clock'); function tick(){ if(!el)return; var d=new Date(); var z=n=>String(n).padStart(2,'0'); el.textContent='🕐 '+d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+' ('+DOWK[d.getDay()]+') '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds()); } tick(); setInterval(tick,1000); })();
+$('#mask-toggle').onclick=()=>{ maskOn=!maskOn; $('#mask-toggle').classList.toggle('on',maskOn); $('#mask-toggle').innerHTML=maskOn?'🔓':'🔒'; $('#mask-toggle').title=maskOn?'개인정보 표시':'개인정보 가리기'; renderAll(); };
+(function(){ var DOWK=['일','월','화','수','목','금','토']; var ed=document.getElementById('clk-date'), et=document.getElementById('clk-time'); function tick(){ if(!ed||!et)return; var d=new Date(); var z=n=>String(n).padStart(2,'0'); ed.textContent=d.getFullYear()+'.'+z(d.getMonth()+1)+'.'+z(d.getDate())+' ('+DOWK[d.getDay()]+')'; et.textContent=z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds()); } tick(); setInterval(tick,1000); })();
 
 function curViewEl(){ return $('#v-'+curView); }
 async function copyImage(el){
@@ -2318,7 +2318,4 @@ if(sbc) cloudInitSync();
     return {kind:'신규 등록',name:c.name,id:c.id,time:parsed.hm};
   }
   function mkRow(item){
-    var d=document.createElement('div');
-    d.style.cssText='display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:13px';
-    d.innerHTML='<span class="ic" style="flex-shrink:0">⏳</span>'
-      +'<span class="nm" style="flex:1;overflow:hidden;text-overfl
+    var d=document.createElement('d
