@@ -544,6 +544,22 @@
         <div class="fg"><label>이동 기한</label><select id="c-time"><option value="">선택</option><option>3개월 내 이사</option><option>6개월 내 여유</option><option>매물 좋으면 즉시</option><option>미정</option></select></div>
       </div>
       <div class="fg-row"><div class="fg"><label>문의일</label><input id="c-inq" type="date"></div><div class="fg"><label>입주 희망일</label><input id="c-move" type="date"></div></div>
+      <div id="c-ownerbox" style="display:none;margin:4px 0 2px;padding:12px;border:1px solid #cbb89a;border-radius:10px;background:#f7f3ea">
+        <label style="font-weight:600;display:block;margin-bottom:8px;color:#7a6f5a">🏠 소유 물건 정보 (매도·임대인용)</label>
+        <div class="fg-row">
+          <div class="fg"><label>단지·건물명</label><input id="o-bldg" placeholder="예) 래미안 역삼"></div>
+          <div class="fg"><label>동/호</label><input id="o-unit" placeholder="예) 101동 1503호"></div>
+        </div>
+        <div class="fg-row">
+          <div class="fg"><label>전용면적(㎡)</label><input id="o-size" type="number" inputmode="numeric" placeholder="84"></div>
+          <div class="fg"><label>희망가(만원)</label><input id="o-price" type="text" inputmode="numeric" placeholder="55,000"></div>
+        </div>
+        <div class="fg-row">
+          <div class="fg"><label>매입일(취득)</label><input id="o-buydate" type="date"></div>
+          <div class="fg"><label>매입가(만원)</label><input id="o-buyprice" type="text" inputmode="numeric" placeholder="42,000"></div>
+        </div>
+        <div class="fg"><label>소유 메모(보유경위·세입자·대출 등)</label><input id="o-memo" placeholder="예) 전세 5억 세입자 2026.08 만기, 잔금 시 말소"></div>
+      </div>
       <div class="fg"><label>실행 액션(요약)</label><textarea id="c-action" rows="3" placeholder="다음 할 일 한 줄 요약 (예: 역삼 84㎡ 3건 추려 문자 발송, 금요일 현장안내 예약)"></textarea></div>
       <div class="fg"><label>메모(통화 원문) · 시간순 정렬</label><textarea id="c-note" rows="14" style="min-height:300px;line-height:1.6;font-size:14px;resize:vertical" placeholder="통화 녹음 원문·요약이 시간순으로 누적됩니다"></textarea></div>
       <div class="fg"><label>수정 히스토리</label><div id="c-history" style="font-size:12px;color:var(--ink-soft);background:var(--paper);border-radius:8px;padding:8px 10px;max-height:120px;overflow:auto">-</div></div>
@@ -803,6 +819,14 @@ function sortNoteByTime(note){
   blocks.forEach(function(b){ (keyOf(b)?dated:plain).push(b); });
   dated.sort(function(a,b){ return keyOf(a).localeCompare(keyOf(b)); });
   return plain.concat(dated).join('\n\n');
+}
+// 파이프라인 등 좁은 카드에서 메모를 한 줄로 요약 (최근 통화 요약 우선, 없으면 앞부분 40자)
+function noteBrief(note){
+  var s=String(note||'').trim(); if(!s) return '';
+  // '요약: ...' 줄이 있으면 마지막(최근) 요약을 우선 사용
+  var sums=s.match(/요약:\s*([^\n]+)/g);
+  var line = sums&&sums.length ? sums[sums.length-1].replace(/^요약:\s*/,'') : s.replace(/\[[^\]]*\]/g,' ').replace(/전문:\s*/g,' ').replace(/\s+/g,' ').trim();
+  return line.length>40 ? line.slice(0,40)+'…' : line;
 }
 // 이름이 없거나 '(미확인)'이면 거래유형+핵심특징 10글자 이내 요약을 표시 이름으로 사용
 function dispName(c){
@@ -1364,7 +1388,7 @@ function renderPipe(){
           <div class="dt">입주희망 ${fmtD(c.move)||'-'} · 단계 ${CSTAGE[c.stage]}${c.closed?' · <span style="color:var(--accent)">🔚종료</span>':''}</div>
           ${(c.fund||c.timeline||leadHot(c))?`<div class="dt">${c.fund?'💳 '+esc(c.fund):''}${c.timeline?((c.fund?' · ':'')+esc(c.timeline)):''}${leadHot(c)?' · <span style="color:var(--accent);font-weight:700">🔥진성</span>':''}</div>`:''}
           ${needTags(c).length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}</div>`:''}
-          ${c.note?`<div class="dt" style="color:var(--ink)">📝 ${esc(c.note)}</div>`:''}
+          ${c.note?`<div class="dt" style="color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.note)}">📝 ${esc(noteBrief(c.note))}</div>`:''}
           <div class="mv">${isC?`<button data-reopen="${c.id}">↩ 재개</button>`:`<button data-mv="${c.id}" data-dir="-1" ${s===1?'disabled style=opacity:.3':''}>‹ 이전</button>${s===5?`<button data-close="${c.id}">🔚 종료</button>`:`<button data-mv="${c.id}" data-dir="1">다음 ›</button>`}`}</div>
           <div class="mv" style="margin-top:4px"><button data-ord="${c.id}" data-od="-1" ${i===0?'disabled style=opacity:.3':''}>▲ 위로</button><button data-ord="${c.id}" data-od="1" ${i===items.length-1?'disabled style=opacity:.3':''}>▼ 아래로</button></div>
           <button class="pbtn" data-alim="${c.id}" onclick="event.stopPropagation()" style="width:100%;margin-top:5px">💬 솔라피 알림톡</button>
@@ -1506,7 +1530,7 @@ $('#cap-pdf').onclick=()=>exportPdf();
 function openOv(id){$('#'+id).classList.add('show')}
 function closeOv(){$$('.ov').forEach(o=>o.classList.remove('show'))}
 $$('[data-close]').forEach(b=>b.onclick=closeOv);
-$$('.ov').forEach(o=>o.onclick=e=>{if(e.target===o)closeOv()});
+$$('.ov').forEach(o=>o.onclick=e=>{ if(e.target!==o)return; if(o.id==='ov-cust'||o.id==='ov-prop')return; /* 입력 많은 창은 바깥클릭으로 안 닫음(실수 방지) */ closeOv(); });
 $('#msg-copy').onclick=async()=>{ try{ await navigator.clipboard.writeText($('#msg-text').value); alert('메시지를 복사했습니다.'); }catch(e){ $('#msg-text').select(); document.execCommand('copy'); alert('메시지를 복사했습니다.'); } };
 $('#msg-phone').onclick=()=>{ const text=$('#msg-text').value||''; const c=window.__msgCust; const ph=c?digits(c.phone):''; const sep=/(iPhone|iPad|iPod|Macintosh)/.test(navigator.userAgent)?'&':'?'; location.href='sms:'+ph+sep+'body='+encodeURIComponent(text); };
 $('#msg-sol-sms').onclick=async()=>{ const c=window.__msgCust; if(!c||!digits(c.phone)) return alert('수신 고객 연락처를 특정할 수 없습니다.\n고객→매물 모드에서 사용하거나 고객 상세에서 보내세요.'); const text=$('#msg-text').value||''; const btn=$('#msg-sol-sms'); const o=btn.textContent; btn.disabled=true; btn.textContent='발송 중…'; try{ const r=await fetch('/api/solapi-sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({receiver:digits(c.phone),msg:text})}); const d=await r.json(); alert(d.ok?'솔라피 문자 발송 완료':'발송 실패: '+(d.message||d.error||'알 수 없음')); }catch(e){ alert('네트워크 오류: '+e.message); } finally{ btn.disabled=false; btn.textContent=o; } };
@@ -1625,7 +1649,8 @@ $('#del-prop').onclick=()=>{ if(editProp&&confirm('이 매물을 삭제할까요
 $$('[data-snsopen]').forEach(b=>b.onclick=()=>{ const pp=editProp?props.find(x=>x.id===editProp):null; if(!pp){alert('먼저 매물을 저장하거나 목록에서 선택하세요.');return;} openBlog(pp,b.dataset.snsopen); });
 function openBlog(p,kind){ if(!p)return; blogProp=p; snsKind=kind||'blog'; $('#blog-link').innerHTML='<span style="color:var(--ink-soft)">[ ] 항목(중개사무소 소재지·등록번호·성명)은 ⚙ 설정으로 자동 채워집니다. 모든 SNS 글은 표시·광고 명시사항을 포함합니다.</span>'; snsTabs(); snsFill(); openOv('ov-blog'); }
 
-$('#c-type').onchange=e=>{ $('#c-rent-l').style.color=e.target.value==='rent'?'var(--brand)':'var(--ink-soft)'; };
+function toggleOwnerBox(){ var cv=String($('#c-type').value||'').split('|'); var side=cv[1]||''; var show=(side==='sell'||side==='landlord'); var box=$('#c-ownerbox'); if(box)box.style.display=show?'':'none'; }
+$('#c-type').onchange=e=>{ var t=String(e.target.value||'').split('|')[0]; $('#c-rent-l').style.color=t==='rent'?'var(--brand)':'var(--ink-soft)'; toggleOwnerBox(); };
 function stageMsg(c){
   const an=agency.name||'[중개사무소]', nm=c.name||'고객';
   const sig=[agency.name,agency.owner,agency.phone].filter(Boolean).join(' · ');
@@ -1643,7 +1668,7 @@ function dlVcard(c){ const a=document.createElement('a'); a.href=URL.createObjec
 function nowStamp(){ const d=new Date(),z=n=>String(n).padStart(2,'0'); return TODAY+' '+z(d.getHours())+':'+z(d.getMinutes()); }
 function pushHist(c,desc){ if(!c.history)c.history=[]; c.history.unshift({ts:nowStamp(),desc}); }
 function renderCustHistory(c){ const box=$('#c-history'); if(!box)return; const h=(c&&c.history)||[]; box.innerHTML=h.length?h.map(x=>'· '+x.ts+' — '+esc(x.desc)).join('<br>'):'-'; }
-function custDiff(o,n){ const f={name:'이름',phone:'연락처',type:'거래',side:'입장',stage:'단계',area:'지역',min:'예산하한',max:'예산상한',size:'평형',rent:'월세',fund:'자금',timeline:'기한',move:'입주일',note:'메모',action:'실행액션'}; const ch=[]; for(const k in f){ if(String(o[k]==null?'':o[k])!==String(n[k]==null?'':n[k])) ch.push(f[k]); } return ch; }
+function custDiff(o,n){ const f={name:'이름',phone:'연락처',type:'거래',side:'입장',stage:'단계',area:'지역',min:'예산하한',max:'예산상한',size:'평형',rent:'월세',fund:'자금',timeline:'기한',move:'입주일',note:'메모',action:'실행액션'}; const ch=[]; for(const k in f){ if(String(o[k]==null?'':o[k])!==String(n[k]==null?'':n[k])) ch.push(f[k]); } if(JSON.stringify(o.owner||null)!==JSON.stringify(n.owner||null)) ch.push('소유물건'); return ch; }
 function renderCustActions(c){
   const box=$('#c-actions'); if(!box)return;
   if(!c){ box.style.display='none'; box.innerHTML=''; return; }
@@ -1778,6 +1803,11 @@ function fillCust(c){
   $('#c-stage').value=c?c.stage:1;
   $('#c-area').value=c?c.area:''; $('#c-min').value=c&&c.min?(+c.min).toLocaleString():''; $('#c-max').value=c&&c.max?(+c.max).toLocaleString():'';
   $('#c-size').value=c&&c.size?c.size:''; $('#c-rent').value=c&&c.rent?c.rent:''; $('#c-fund').value=c?c.fund||'':''; $('#c-time').value=c?c.timeline||'':''; $('#c-inq').value=c?(c.inq||c.created||''):''; $('#c-move').value=c?c.move||'':''; $('#c-note').value=c?sortNoteByTime(c.note||''):''; $('#c-action').value=c?c.action||'':'';
+  var ow=(c&&c.owner)?c.owner:{};
+  $('#o-bldg').value=ow.bldg||''; $('#o-unit').value=ow.unit||''; $('#o-size').value=ow.size||'';
+  $('#o-price').value=ow.price?(+ow.price).toLocaleString():''; $('#o-buydate').value=ow.buyDate||'';
+  $('#o-buyprice').value=ow.buyPrice?(+ow.buyPrice).toLocaleString():''; $('#o-memo').value=ow.memo||'';
+  toggleOwnerBox();
   renderCustActions(c); renderCustHistory(c);
   openOv('ov-cust');
 }
@@ -1788,12 +1818,17 @@ $('#save-cust').onclick=()=>{
   const data={name,phone:$('#c-phone').value,type:_type,side:_side,stage:+$('#c-stage').value,
     area:$('#c-area').value.trim(),min:+digits($('#c-min').value)||0,max:+digits($('#c-max').value)||0,size:+$('#c-size').value||0,
     rent:+$('#c-rent').value||0,fund:$('#c-fund').value,timeline:$('#c-time').value,inq:$('#c-inq').value,move:$('#c-move').value,note:$('#c-note').value.trim(),action:$('#c-action').value.trim()};
+  // 매도·임대인이면 소유 물건 정보 저장
+  if(_side==='sell'||_side==='landlord'){
+    data.owner={bldg:$('#o-bldg').value.trim(),unit:$('#o-unit').value.trim(),size:+$('#o-size').value||0,
+      price:+digits($('#o-price').value)||0,buyDate:$('#o-buydate').value,buyPrice:+digits($('#o-buyprice').value)||0,memo:$('#o-memo').value.trim()};
+  } else { data.owner=null; }
   if(data.type==='rent') data.max=data.min; /* 월세는 보증금 단일화(환산보증금 계산용) */
   if(editCust){ const c=custs.find(x=>x.id===editCust); const ch=custDiff(c,data); Object.assign(c,data); pushHist(c, ch.length?('수정: '+ch.join(', ')):'저장'); }
   else { const c={id:cid++,...data,created:TODAY,closed:false,history:[]}; pushHist(c,'신규 등록'); custs.push(c); }
   closeOv(); renderAll();
 };
-['c-min','c-max'].forEach(id=>{ const _e=document.getElementById(id); if(_e) _e.oninput=()=>{ const v=digits(_e.value); _e.value=v?(+v).toLocaleString():''; }; });
+['c-min','c-max','o-price','o-buyprice'].forEach(id=>{ const _e=document.getElementById(id); if(_e) _e.oninput=()=>{ const v=digits(_e.value); _e.value=v?(+v).toLocaleString():''; }; });
 $('#cmsg-copy').onclick=async()=>{ try{ await navigator.clipboard.writeText($('#cmsg-text').value); alert('안내 메시지를 복사했습니다.'); }catch(e){ $('#cmsg-text').select(); document.execCommand('copy'); alert('복사했습니다.'); } };
 $('#del-cust').onclick=()=>{ if(editCust&&confirm('이 고객을 삭제할까요?')){ custs=custs.filter(x=>x.id!==editCust); closeOv(); renderAll(); } };
 
@@ -2034,8 +2069,8 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('crm_data')||'null
 /* ============ ☁ 클라우드 동기화 (Supabase) ============ */
 function pPropToDb(p){return{ext_id:String(p.id),code:p.code||null,kind:p.kind||null,deal_type:p.type,status:p.status,name:p.name,area:p.area||null,soje:p.soje||null,jibun:p.jibun||null,floor:p.floor||null,pyeong_type:p.pyeong||null,dong:p.dong||null,size_m2:p.size||null,supply_m2:p.supply||null,price:p.price||null,rent:p.rent||null,rooms:p.rooms||null,baths:p.baths||null,mgmt:p.mgmt||null,heat:p.heat||null,units:p.units||null,build_year:p.buildYear||null,builder:p.builder||null,approve_date:p.approve||null,zone:p.zone||null,use_type:p.useType||null,parking:p.parking||null,biz_now:p.bizNow||null,biz_rec:p.bizRec||null,power:p.power||null,dir:p.dir||null,move_date:p.move||null,seller_phone:p.sPhone||null,buyer_phone:p.bPhone||null,lessor_phone:p.lrPhone||null,lessee_phone:p.lePhone||null,agent:p.agent||null,agent_phone:p.agentPhone||null,mobile:p.mobile||null,agent_id:p.agentId||null,note:p.note||null,memo:p.memo||null,open_date:p.reg||null,market_price:p.marketPrice||null};}
 function dbToProp(r,id){return{id,code:r.code||'',kind:r.kind||'',type:r.deal_type||'sale',status:r.status||2,name:r.name||'',area:r.area||'',soje:r.soje||'',jibun:r.jibun||'',floor:r.floor||'',pyeong:r.pyeong_type||'',dong:r.dong||'',size:+r.size_m2||0,supply:+r.supply_m2||0,price:+r.price||0,rent:+r.rent||0,rooms:r.rooms||'',baths:r.baths||'',mgmt:r.mgmt||'',heat:r.heat||'',units:r.units||'',buildYear:r.build_year||'',builder:r.builder||'',approve:r.approve_date||'',zone:r.zone||'',useType:r.use_type||'',parking:r.parking||'',bizNow:r.biz_now||'',bizRec:r.biz_rec||'',power:r.power||'',dir:r.dir||'-',move:r.move_date||'',sPhone:r.seller_phone||'',bPhone:r.buyer_phone||'',lrPhone:r.lessor_phone||'',lePhone:r.lessee_phone||'',agent:r.agent||'',agentPhone:r.agent_phone||'',mobile:r.mobile||'',agentId:r.agent_id||'',note:r.note||'',memo:r.memo||'',reg:r.open_date||TODAY,marketPrice:r.market_price||''};}
-function cToDb(c){return{ext_id:String(c.id),name:c.name,phone:c.phone||null,deal_type:c.type,side:c.side||null,stage:c.stage,area:c.area||null,budget_min:c.min||null,budget_max:c.max||null,size_m2:c.size||null,rent:c.rent||null,fund:c.fund||null,timeline:c.timeline||null,inq_date:c.inq||c.created||null,move_date:c.move||null,note:c.note||null,action_memo:c.action||null,rec_sigs:c.recSigs||[],rec_count:c.recCount||0,closed:!!c.closed,history:c.history||[]};}
-function dbToC(r,id){return{id,name:r.name||'',phone:r.phone||'',type:r.deal_type||'sale',side:r.side||defSide(r.deal_type||'sale'),stage:r.stage||1,area:r.area||'',min:+r.budget_min||0,max:+r.budget_max||0,size:+r.size_m2||0,rent:+r.rent||0,fund:r.fund||'',timeline:r.timeline||'',inq:r.inq_date||'',created:r.inq_date||TODAY,move:r.move_date||'',note:r.note||'',action:r.action_memo||'',recSigs:Array.isArray(r.rec_sigs)?r.rec_sigs:[],recCount:+r.rec_count||0,closed:!!r.closed,history:Array.isArray(r.history)?r.history:[]};}
+function cToDb(c){return{ext_id:String(c.id),name:c.name,phone:c.phone||null,deal_type:c.type,side:c.side||null,stage:c.stage,area:c.area||null,budget_min:c.min||null,budget_max:c.max||null,size_m2:c.size||null,rent:c.rent||null,fund:c.fund||null,timeline:c.timeline||null,inq_date:c.inq||c.created||null,move_date:c.move||null,note:c.note||null,action_memo:c.action||null,owner_info:c.owner||null,rec_sigs:c.recSigs||[],rec_count:c.recCount||0,closed:!!c.closed,history:c.history||[]};}
+function dbToC(r,id){return{id,name:r.name||'',phone:r.phone||'',type:r.deal_type||'sale',side:r.side||defSide(r.deal_type||'sale'),stage:r.stage||1,area:r.area||'',min:+r.budget_min||0,max:+r.budget_max||0,size:+r.size_m2||0,rent:+r.rent||0,fund:r.fund||'',timeline:r.timeline||'',inq:r.inq_date||'',created:r.inq_date||TODAY,move:r.move_date||'',note:r.note||'',action:r.action_memo||'',owner:r.owner_info||null,recSigs:Array.isArray(r.rec_sigs)?r.rec_sigs:[],recCount:+r.rec_count||0,closed:!!r.closed,history:Array.isArray(r.history)?r.history:[]};}
 function tToDb(t){return{ext_id:String(t.id),descr:t.desc,due_date:t.due||null,due_time:t.time||null,cust_ext:t.custId?String(t.custId):null,phone:t.phone||null,done:!!t.done};}
 function clStatus(u){ const st=$('#cl-status'); if(!sbc){ if(st)st.textContent='클라우드 라이브러리 로드 실패(인터넷 확인).'; return; } if(u){ if(st)st.innerHTML='로그인됨: <b>'+esc(u.email||'')+'</b> — 저장 시 자동 동기화됩니다.'; const lo=$('#cl-logout'); if(lo)lo.style.display=''; } else { if(st)st.textContent='로그인하면 여러 기기에서 같은 데이터를 쓸 수 있습니다.'; const lo=$('#cl-logout'); if(lo)lo.style.display='none'; } }
 async function clRefresh(){ if(!sbc)return; try{ const {data}=await sbc.auth.getUser(); clStatus(data&&data.user); }catch(e){ clStatus(null); } }
