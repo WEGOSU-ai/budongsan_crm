@@ -2224,7 +2224,11 @@ if(sbc) cloudInitSync();
     f.addEventListener('change',function(){
       var file=f.files&&f.files[0];if(!file){return;}var msg=$('c-recmsg');
       var p=parseName(file.name);
-      setEmpty('c-phone',p.phone);setEmpty('c-inq',p.date);setEmpty('c-name',p.name);
+      setEmpty('c-phone',p.phone);setEmpty('c-inq',p.date);
+      var _tm=file.name.match(/(20\d{2})[-.\s_]?(\d{2})[-.\s_]?(\d{2})[-.\s_T]*(\d{2})[-.\s_:]?(\d{2})/);
+      var _tag=_tm?(_tm[1]+_tm[2]+_tm[3]+'_'+_tm[4]+_tm[5]):(p.date?p.date.replace(/-/g,''):'');
+      var _nm=[p.name,p.phone,_tag].filter(Boolean).join('_');
+      setEmpty('c-name',_nm||p.name);
       if(msg){msg.textContent='파일명 분석: '+(p.name||'-')+' / '+(p.phone||'-')+' / '+(p.date||'-')+' · 음성 분석 중…';}
       var fd=new FormData();fd.append('audio',file);
       fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
@@ -2234,8 +2238,10 @@ if(sbc) cloudInitSync();
         setEmpty('c-area',x.region);setEmpty('c-min',x.budMin);setEmpty('c-max',x.budMax);
         setEmpty('c-size',x.size);setEmpty('c-rent',x.monthly);
         setSelEmpty('c-fund',x.fund);setSelEmpty('c-time',x.timing);
+        setEmpty('c-move',x.movein);setEmpty('c-action',x.action);
+        var nmEl=$('c-name');if(nmEl&&x.name&&(!nmEl.value||nmEl.value==='(미확인)')){nmEl.value=x.name;nmEl.dispatchEvent(new Event('input',{bubbles:true}));}
         var memo=$('c-note');
-        if(memo){var add=(x.summary?('[요약] '+x.summary+'\n\n'):'')+(j.transcript?('[전문]\n'+j.transcript):'');memo.value=memo.value?(memo.value+'\n\n'+add):add;memo.dispatchEvent(new Event('input',{bubbles:true}));}
+        if(memo){var add='[녹음파일] '+file.name+'\n'+(x.summary?('[요약] '+x.summary+'\n\n'):'')+(j.transcript?('[전문]\n'+j.transcript):'');memo.value=memo.value?(memo.value+'\n\n'+add):add;memo.dispatchEvent(new Event('input',{bubbles:true}));}
         if(msg){msg.textContent='자동 입력 완료. 확인 후 저장하세요.';}
       }).catch(function(){if(msg){msg.textContent='변환 서버에 연결할 수 없습니다. PC에서 서버를 켜주세요.';}});
     });
@@ -2272,9 +2278,10 @@ if(sbc) cloudInitSync();
   function buildNote(x,transcript,parsed,nth){
     var when=parsed.dt||parsed.date||TODAY;
     var head='['+when+' 통화'+(nth?' #'+nth:'')+']';
+    var rec=parsed.fn?('녹음파일: '+parsed.fn):'';
     var summ=x.summary?('요약: '+x.summary):'';
     var body=transcript?('전문: '+transcript):'';
-    return [head,summ,body].filter(Boolean).join('\n');
+    return [head,rec,summ,body].filter(Boolean).join('\n');
   }
   // 중복키: 전화번호 + 통화시각(파일명 바뀌어도 동일). 시각 없으면 전화+날짜.
   function recKey(parsed){
@@ -2290,6 +2297,12 @@ if(sbc) cloudInitSync();
     var type=(x.type&&TYPEMAP[x.type])?TYPEMAP[x.type]:'sale';
     var side=x.side||defSideOf(type);
     if(found){
+      // 이름이 비었거나 (미확인)이면 이번 통화 정보로 정식 형식(이름_연락처_통화일시)으로 승격
+      if(!found.name||found.name==='(미확인)'){
+        var _ut=parsed.ts?(String(parsed.ts).slice(0,8)+'_'+String(parsed.ts).slice(8,12)):(parsed.date?parsed.date.replace(/-/g,''):'');
+        var _un=[parsed.name||x.name||'',parsed.phone||'',_ut].filter(Boolean).join('_');
+        if(_un)found.name=_un;
+      }
       // 전화번호+통화시각이 같으면 중복 → 건너뜀 (파일명 변경 무관)
       var prevSigs=Array.isArray(found.recSigs)?found.recSigs:[];
       if(prevSigs.indexOf(key)>-1){
@@ -2310,9 +2323,12 @@ if(sbc) cloudInitSync();
       return {kind:'기존 보강(통화 '+found.recCount+'번째)',name:found.name||parsed.name||'(미확인)',id:found.id,time:parsed.hm};
     }
     var note=buildNote(x,transcript,parsed,1);
-    var c={id:cid++,name:parsed.name||'(미확인)',phone:parsed.phone||'',type:type,side:side,stage:1,
+    // 첫 등록 이름 형식: 이름_연락처_통화일시 (이름 없으면 연락처_통화일시)
+    var _tag=parsed.ts?(String(parsed.ts).slice(0,8)+'_'+String(parsed.ts).slice(8,12)):(parsed.date?parsed.date.replace(/-/g,''):'');
+    var _nm=[parsed.name||x.name||'',parsed.phone||'',_tag].filter(Boolean).join('_');
+    var c={id:cid++,name:_nm||'(미확인)',phone:parsed.phone||'',type:type,side:side,stage:1,
       area:x.region||'',min:+x.budMin||0,max:+x.budMax||0,size:+x.size||0,rent:+x.monthly||0,
-      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:'',note:note,action:'',owner:null,closed:false,history:[],recSigs:[key],recCount:1};
+      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:x.movein||'',note:note,action:x.action||'',owner:null,closed:false,history:[],recSigs:[key],recCount:1};
     pushHist(c,'통화녹음 자동입력(신규 · 통화 1번째)');
     custs.push(c);
     return {kind:'신규 등록',name:c.name,id:c.id,time:parsed.hm};
@@ -2330,7 +2346,7 @@ if(sbc) cloudInitSync();
     d.querySelector('.st').textContent='대기 중';
     d.querySelector('.del').onclick=function(ev){ ev.stopPropagation(); var qi=queue.indexOf(item); if(qi>-1)queue.splice(qi,1); d.remove(); };
     d.querySelector('.retry').onclick=function(ev){ ev.stopPropagation(); d.querySelector('.retry').style.display='none'; d._cid=null; d.style.cursor='default'; setRow(d,'⏳','재시도 대기'); queue.push(item); pump(); };
-    d.onclick=function(){ if(d._cid&&typeof gotoCust==='function'){ switchView('custs'); var cc=custs.find(function(x){return x.id===d._cid;}); if(cc){ $id('cust-search').value=cc.name; } gotoCust(d._cid); } };
+    d.onclick=function(){ if(!d._cid)return; var cc=custs.find(function(x){return x.id===d._cid;}); if(!cc)return; if(typeof gotoCust==='function'){ $id('cust-search').value=cc.name; gotoCust(d._cid); } if(typeof fillCust==='function'){ fillCust(cc); } };
     return d;
   }
   function setRow(d,icon,txt,color){d.querySelector('.ic').textContent=icon;var st=d.querySelector('.st');st.textContent=txt;if(color)st.style.color=color;}
@@ -2340,6 +2356,7 @@ if(sbc) cloudInitSync();
     if(!item){ if(totalN){ renderAll(); var s=$id('rec-summary'); if(s)s.textContent='완료: 총 '+totalN+'건 · 처리된 줄을 누르면 고객으로 이동'; totalN=0;doneN=0; } return; }
     busy=true; var file=item.file,d=item.row;
     var parsed=parseFn(file.name);
+    parsed.fn=file.name;
     setRow(d,'🔎','분석 중… '+(parsed.hm?parsed.hm+' ':'')+(parsed.name||'-')+' / '+(parsed.phone||'-'));
     var fd=new FormData();fd.append('audio',file);
     fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
