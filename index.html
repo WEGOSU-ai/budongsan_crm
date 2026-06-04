@@ -361,7 +361,7 @@
       <button class="btn ghost sm" data-dl="prop">⬇ 매물 CSV</button>
       <button class="btn ghost sm" data-dl="cust">⬇ 고객 CSV</button>
       <button class="btn ghost sm" data-dl="task">⬇ 할일 CSV</button>
-      <button class="btn ghost sm" id="backup-all">📦 전체 백업(Excel)</button>
+      <!-- (제거 2026-06-05) 전체 백업(Excel) 다운로드 버튼 — 클라우드 동기화로 대체, 다운로드 폴더 오염 방지 -->
       <button class="btn ghost sm" id="restore-all">📥 전체 복원</button>
       <button class="btn ghost sm danger" id="wipe">🗑 전체 삭제</button>
       <input type="file" id="file-all" accept=".xlsx,.xls" style="display:none">
@@ -2062,7 +2062,7 @@ function restoreAll(file){
   rd.readAsArrayBuffer(file);
 }
 $('#nudge').onclick=nudgeBatch;
-$('#backup-all').onclick=backupAll;
+if($('#backup-all'))$('#backup-all').onclick=backupAll; /* 버튼 제거됨(2026-06-05) — 가드만 유지 */
 $('#restore-all').onclick=()=>$('#file-all').click();
 $('#file-all').onchange=e=>{ if(e.target.files[0])restoreAll(e.target.files[0]); e.target.value=''; };
 $('#wipe').onclick=()=>{
