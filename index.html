@@ -535,6 +535,7 @@
       <div class="fg-row">
         <div class="fg"><label>희망 거래유형</label><select id="c-type"><option value="sale|buy">매매·매수(살 분)</option><option value="sale|sell">매매·매도(팔 분)</option><option value="jeonse|tenant">전세·임차(구할 분)</option><option value="jeonse|landlord">전세·임대(놓을 분)</option><option value="rent|tenant">월세·임차(구할 분)</option><option value="rent|landlord">월세·임대(놓을 분)</option><option value="invest|buy">투자</option></select></div>
         <div class="fg"><label>고객단계</label><select id="c-stage"><option value="1">신규문의</option><option value="2">현장안내</option><option value="3">계약검토</option><option value="4">계약</option><option value="5">사후관리</option></select></div>
+        <div class="fg"><label>분류(통화 자동)</label><select id="c-cat"><option value="">미분류</option><option>스팸/오접속</option><option>실수요 고객(계약 진행중)</option><option>실수요 고객(매물문의)</option><option>임대인/공동중개</option><option>타업종 영업/비매물</option></select></div>
       </div>
       <div class="fg"><label>희망 지역(동)</label><input id="c-area" placeholder="예) 역삼동"></div>
       <div class="fg-row">
@@ -1324,17 +1325,24 @@ function renderCustFilters(){
   const _seen=new Set(); const base=custs.filter(c=>{const d=digits(c.phone); if(d&&_seen.has(d))return false; if(d)_seen.add(d); return true;});
   const tc=k=>k==='all'?base.filter(c=>!c.closed).length:base.filter(c=>!c.closed&&c.type===k).length;
   const sc=k=>k==='all'?base.filter(c=>!c.closed).length:k==='closed'?base.filter(c=>c.closed).length:base.filter(c=>!c.closed&&String(c.stage)===String(k)).length;
+  const cats=[['all','전체'],['스팸/오접속','스팸/오접속'],['실수요 고객(계약 진행중)','실수요(계약중)'],['실수요 고객(매물문의)','실수요(문의)'],['임대인/공동중개','임대인/공동중개'],['타업종 영업/비매물','타업종/비매물'],['none','미분류']];
+  const fcat=custFilter.cat||'all';
+  const cc=k=>k==='all'?base.filter(c=>!c.closed).length:k==='none'?base.filter(c=>!c.closed&&!c.category).length:base.filter(c=>!c.closed&&c.category===k).length;
   $('#cust-filters').innerHTML=
     `<div class="fgrp"><span class="lbl">거래</span>`+types.map(t=>`<button class="fchip ${String(custFilter.type)===String(t[0])?'on':''}" data-ft="${t[0]}">${t[1]} <b>${tc(t[0])}</b></button>`).join('')+`</div>`+
-    `<div class="fgrp"><span class="lbl">단계</span>`+stages.map(s=>`<button class="fchip ${String(custFilter.stage)===String(s[0])?'on':''}" data-fs="${s[0]}">${s[1]} <b>${sc(s[0])}</b></button>`).join('')+`</div>`;
+    `<div class="fgrp"><span class="lbl">단계</span>`+stages.map(s=>`<button class="fchip ${String(custFilter.stage)===String(s[0])?'on':''}" data-fs="${s[0]}">${s[1]} <b>${sc(s[0])}</b></button>`).join('')+`</div>`+
+    `<div class="fgrp"><span class="lbl">분류</span>`+cats.map(s=>`<button class="fchip ${String(fcat)===String(s[0])?'on':''}" data-fc="${s[0]}">${s[1]} <b>${cc(s[0])}</b></button>`).join('')+`</div>`;
   $$('#cust-filters [data-ft]').forEach(b=>b.onclick=()=>{custFilter.type=b.dataset.ft;renderCustFilters();renderCusts();});
   $$('#cust-filters [data-fs]').forEach(b=>b.onclick=()=>{custFilter.stage=b.dataset.fs;renderCustFilters();renderCusts();});
+  $$('#cust-filters [data-fc]').forEach(b=>b.onclick=()=>{custFilter.cat=b.dataset.fc;renderCustFilters();renderCusts();});
 }
 function renderCusts(){
   const q=($('#cust-search').value||'').trim(), qd=digits(q);
   const seenP=new Set();
   let data=custs.filter(c=>{ const d=digits(c.phone); if(d&&seenP.has(d))return false; if(d)seenP.add(d); return true; });
   if(custFilter.type!=='all') data=data.filter(c=>c.type===custFilter.type);
+  const _fc=custFilter.cat||'all';
+  if(_fc!=='all') data=data.filter(c=>_fc==='none'?!c.category:c.category===_fc);
   if(custFilter.stage==='closed'){ data=data.filter(c=>c.closed); }
   else { data=data.filter(c=>!c.closed); if(custFilter.stage==='deal') data=data.filter(c=>c.stage>=3&&c.stage<=4); else if(custFilter.stage!=='all') data=data.filter(c=>String(c.stage)===String(custFilter.stage)); }
   if(q) data=data.filter(c=>
@@ -1346,7 +1354,7 @@ function renderCusts(){
     <div class="row" data-cid="${c.id}">
       <span class="idx">${i+1}</span>
       <div class="main">
-        <div class="title">${typeTag(c.type,c.side)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(dispName(c))}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span>${c.recCount?` <span class="tag" style="background:#e9f0ff;color:#2f5fb3" title="이 번호로 녹음 통화 ${c.recCount}건이 이 고객에 누적됨">🎤 통화 ${c.recCount}</span>`:''}</div>
+        <div class="title">${typeTag(c.type,c.side)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(dispName(c))}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span>${c.recCount?` <span class="tag" style="background:#e9f0ff;color:#2f5fb3" title="이 번호로 녹음 통화 ${c.recCount}건이 이 고객에 누적됨">🎤 통화 ${c.recCount}</span>`:''}${c.category?` <span class="tag" style="background:#f0e9dd;color:#7a6a4f">${esc(c.category)}</span>`:''}</div>
         <div class="meta">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)} · 입주희망 ${fmtD(c.move)||'-'}${c.fund?' · '+esc(c.fund):''}${c.timeline?' · '+esc(c.timeline):''}${c.action?' · <b style="color:var(--brand)">▶ '+esc(c.action)+'</b>':''}${c.note?' · '+esc(c.note):''}</div>${(needTags(c).length||leadHot(c))?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}${leadHot(c)?'<span class="lead">🔥 진성</span>':''}</div>`:''}
       </div><div style="text-align:right;display:flex;flex-direction:column;gap:5px;align-items:flex-end">${digits(c.phone)?`<a class="pbtn" href="tel:${digits(c.phone)}" onclick="event.stopPropagation()" title="전화 걸기" style="text-decoration:none">📞 통화</a>`:''}<button class="pbtn" data-cclose="${c.id}" onclick="event.stopPropagation()" title="안내 종료/재개">${c.closed?'↩ 재개':'🔚 종료'}</button><div class="edit-hint">✎ 수정</div></div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>조건에 맞는 고객이 없습니다.</div>';
   $$('#cust-list .row').forEach(r=>r.onclick=()=>fillCust(custs.find(x=>x.id===+r.dataset.cid)));
@@ -1809,6 +1817,7 @@ function fillCust(c){
   var _combo=c?((c.type||'sale')+'|'+(c.side||defSide(c.type))):'sale|buy';
   var _sel=$('#c-type'); _sel.value=_combo; if(!_sel.value)_sel.value=(c?c.type:'sale')+'|'+defSide(c?c.type:'sale');
   $('#c-stage').value=c?c.stage:1;
+  if($('#c-cat'))$('#c-cat').value=c?(c.category||''):'';
   $('#c-area').value=c?c.area:''; $('#c-min').value=c&&c.min?(+c.min).toLocaleString():''; $('#c-max').value=c&&c.max?(+c.max).toLocaleString():'';
   $('#c-size').value=c&&c.size?c.size:''; $('#c-rent').value=c&&c.rent?c.rent:''; $('#c-fund').value=c?c.fund||'':''; $('#c-time').value=c?c.timeline||'':''; $('#c-inq').value=c?(c.inq||c.created||''):''; $('#c-move').value=c?c.move||'':''; $('#c-note').value=c?sortNoteByTime(c.note||''):''; $('#c-action').value=c?c.action||'':'';
   var ow=(c&&c.owner)?c.owner:{};
@@ -1825,7 +1834,7 @@ $('#save-cust').onclick=()=>{
   const _cv=String($('#c-type').value||'sale|buy').split('|'); const _type=_cv[0]||'sale'; const _side=_cv[1]||defSide(_type);
   const data={name,phone:$('#c-phone').value,type:_type,side:_side,stage:+$('#c-stage').value,
     area:$('#c-area').value.trim(),min:+digits($('#c-min').value)||0,max:+digits($('#c-max').value)||0,size:+$('#c-size').value||0,
-    rent:+$('#c-rent').value||0,fund:$('#c-fund').value,timeline:$('#c-time').value,inq:$('#c-inq').value,move:$('#c-move').value,note:$('#c-note').value.trim(),action:$('#c-action').value.trim()};
+    rent:+$('#c-rent').value||0,fund:$('#c-fund').value,timeline:$('#c-time').value,inq:$('#c-inq').value,move:$('#c-move').value,note:$('#c-note').value.trim(),action:$('#c-action').value.trim(),category:($('#c-cat')?$('#c-cat').value:'')||''};
   // 매도·임대인이면 소유 물건 정보 저장
   if(_side==='sell'||_side==='landlord'){
     data.owner={bldg:$('#o-bldg').value.trim(),unit:$('#o-unit').value.trim(),size:+$('#o-size').value||0,
@@ -2077,8 +2086,8 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('crm_data')||'null
 /* ============ ☁ 클라우드 동기화 (Supabase) ============ */
 function pPropToDb(p){return{ext_id:String(p.id),code:p.code||null,kind:p.kind||null,deal_type:p.type,status:p.status,name:p.name,area:p.area||null,soje:p.soje||null,jibun:p.jibun||null,floor:p.floor||null,pyeong_type:p.pyeong||null,dong:p.dong||null,size_m2:p.size||null,supply_m2:p.supply||null,price:p.price||null,rent:p.rent||null,rooms:p.rooms||null,baths:p.baths||null,mgmt:p.mgmt||null,heat:p.heat||null,units:p.units||null,build_year:p.buildYear||null,builder:p.builder||null,approve_date:p.approve||null,zone:p.zone||null,use_type:p.useType||null,parking:p.parking||null,biz_now:p.bizNow||null,biz_rec:p.bizRec||null,power:p.power||null,dir:p.dir||null,move_date:p.move||null,seller_phone:p.sPhone||null,buyer_phone:p.bPhone||null,lessor_phone:p.lrPhone||null,lessee_phone:p.lePhone||null,agent:p.agent||null,agent_phone:p.agentPhone||null,mobile:p.mobile||null,agent_id:p.agentId||null,note:p.note||null,memo:p.memo||null,open_date:p.reg||null,market_price:p.marketPrice||null};}
 function dbToProp(r,id){return{id,code:r.code||'',kind:r.kind||'',type:r.deal_type||'sale',status:r.status||2,name:r.name||'',area:r.area||'',soje:r.soje||'',jibun:r.jibun||'',floor:r.floor||'',pyeong:r.pyeong_type||'',dong:r.dong||'',size:+r.size_m2||0,supply:+r.supply_m2||0,price:+r.price||0,rent:+r.rent||0,rooms:r.rooms||'',baths:r.baths||'',mgmt:r.mgmt||'',heat:r.heat||'',units:r.units||'',buildYear:r.build_year||'',builder:r.builder||'',approve:r.approve_date||'',zone:r.zone||'',useType:r.use_type||'',parking:r.parking||'',bizNow:r.biz_now||'',bizRec:r.biz_rec||'',power:r.power||'',dir:r.dir||'-',move:r.move_date||'',sPhone:r.seller_phone||'',bPhone:r.buyer_phone||'',lrPhone:r.lessor_phone||'',lePhone:r.lessee_phone||'',agent:r.agent||'',agentPhone:r.agent_phone||'',mobile:r.mobile||'',agentId:r.agent_id||'',note:r.note||'',memo:r.memo||'',reg:r.open_date||TODAY,marketPrice:r.market_price||''};}
-function cToDb(c){return{ext_id:String(c.id),name:c.name,phone:c.phone||null,deal_type:c.type,side:c.side||null,stage:c.stage,area:c.area||null,budget_min:c.min||null,budget_max:c.max||null,size_m2:c.size||null,rent:c.rent||null,fund:c.fund||null,timeline:c.timeline||null,inq_date:c.inq||c.created||null,move_date:c.move||null,note:c.note||null,action_memo:c.action||null,owner_info:c.owner||null,rec_sigs:c.recSigs||[],rec_count:c.recCount||0,closed:!!c.closed,history:c.history||[]};}
-function dbToC(r,id){return{id,name:r.name||'',phone:r.phone||'',type:r.deal_type||'sale',side:r.side||defSide(r.deal_type||'sale'),stage:r.stage||1,area:r.area||'',min:+r.budget_min||0,max:+r.budget_max||0,size:+r.size_m2||0,rent:+r.rent||0,fund:r.fund||'',timeline:r.timeline||'',inq:r.inq_date||'',created:r.inq_date||TODAY,move:r.move_date||'',note:r.note||'',action:r.action_memo||'',owner:r.owner_info||null,recSigs:Array.isArray(r.rec_sigs)?r.rec_sigs:[],recCount:+r.rec_count||0,closed:!!r.closed,history:Array.isArray(r.history)?r.history:[]};}
+function cToDb(c){return{ext_id:String(c.id),name:c.name,phone:c.phone||null,deal_type:c.type,side:c.side||null,stage:c.stage,area:c.area||null,budget_min:c.min||null,budget_max:c.max||null,size_m2:c.size||null,rent:c.rent||null,fund:c.fund||null,timeline:c.timeline||null,inq_date:c.inq||c.created||null,move_date:c.move||null,note:c.note||null,action_memo:c.action||null,owner_info:c.owner||null,rec_sigs:c.recSigs||[],rec_count:c.recCount||0,closed:!!c.closed,history:c.history||[],category:c.category||null};}
+function dbToC(r,id){return{id,name:r.name||'',phone:r.phone||'',type:r.deal_type||'sale',side:r.side||defSide(r.deal_type||'sale'),stage:r.stage||1,area:r.area||'',min:+r.budget_min||0,max:+r.budget_max||0,size:+r.size_m2||0,rent:+r.rent||0,fund:r.fund||'',timeline:r.timeline||'',inq:r.inq_date||'',created:r.inq_date||TODAY,move:r.move_date||'',note:r.note||'',action:r.action_memo||'',owner:r.owner_info||null,recSigs:Array.isArray(r.rec_sigs)?r.rec_sigs:[],recCount:+r.rec_count||0,closed:!!r.closed,history:Array.isArray(r.history)?r.history:[],category:r.category||''};}
 function tToDb(t){return{ext_id:String(t.id),descr:t.desc,due_date:t.due||null,due_time:t.time||null,cust_ext:t.custId?String(t.custId):null,phone:t.phone||null,done:!!t.done};}
 function clStatus(u){ const st=$('#cl-status'); if(!sbc){ if(st)st.textContent='클라우드 라이브러리 로드 실패(인터넷 확인).'; return; } if(u){ if(st)st.innerHTML='로그인됨: <b>'+esc(u.email||'')+'</b> — 저장 시 자동 동기화됩니다.'; const lo=$('#cl-logout'); if(lo)lo.style.display=''; } else { if(st)st.textContent='로그인하면 여러 기기에서 같은 데이터를 쓸 수 있습니다.'; const lo=$('#cl-logout'); if(lo)lo.style.display='none'; } }
 async function clRefresh(){ if(!sbc)return; try{ const {data}=await sbc.auth.getUser(); clStatus(data&&data.user); }catch(e){ clStatus(null); } }
@@ -2280,8 +2289,22 @@ if(sbc) cloudInitSync();
     var head='['+when+' 통화'+(nth?' #'+nth:'')+']';
     var rec=parsed.fn?('녹음파일: '+parsed.fn):'';
     var summ=x.summary?('요약: '+x.summary):'';
+    var mom=(Array.isArray(x.moments)&&x.moments.length)?('핵심발언:\n'+x.moments.map(function(m){return '- '+String(m).trim();}).join('\n')):'';
     var body=transcript?('전문: '+transcript):'';
-    return [head,rec,summ,body].filter(Boolean).join('\n');
+    return [head,rec,summ,mom,body].filter(Boolean).join('\n');
+  }
+  function actionLine(x,parsed){
+    var bits=[];
+    if(x.action)bits.push('액션: '+String(x.action).trim());
+    if(x.warn)bits.push('주의: '+String(x.warn).trim());
+    if(!bits.length)return '';
+    var when=parsed.dt||parsed.date||'';
+    return (when?('['+when+'] '):'')+bits.join(' · ');
+  }
+  function applyCat(c,x){
+    if(!x.cat)return;
+    var oc=c.category||'';
+    if(!oc||(oc==='실수요 고객(매물문의)'&&x.cat==='실수요 고객(계약 진행중)'))c.category=x.cat;
   }
   // 중복키: 전화번호 + 통화시각(파일명 바뀌어도 동일). 시각 없으면 전화+날짜.
   function recKey(parsed){
@@ -2319,6 +2342,9 @@ if(sbc) cloudInitSync();
       if(!found.size&&x.size)found.size=+x.size||0;
       if(!found.min&&x.budMin)found.min=+x.budMin||0;
       if(!found.max&&x.budMax)found.max=+x.budMax||0;
+      var _al=actionLine(x,parsed);
+      if(_al)found.action=(found.action?(found.action+'\n'):'')+_al;
+      applyCat(found,x);
       pushHist(found,'통화녹음 자동입력(업데이트 · 통화 '+found.recCount+'번째)');
       return {kind:'기존 보강(통화 '+found.recCount+'번째)',name:found.name||parsed.name||'(미확인)',id:found.id,time:parsed.hm};
     }
@@ -2328,7 +2354,7 @@ if(sbc) cloudInitSync();
     var _nm=[parsed.name||x.name||'',parsed.phone||'',_tag].filter(Boolean).join('_');
     var c={id:cid++,name:_nm||'(미확인)',phone:parsed.phone||'',type:type,side:side,stage:1,
       area:x.region||'',min:+x.budMin||0,max:+x.budMax||0,size:+x.size||0,rent:+x.monthly||0,
-      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:x.movein||'',note:note,action:x.action||'',owner:null,closed:false,history:[],recSigs:[key],recCount:1};
+      fund:x.fund||'',timeline:x.timing||'',inq:parsed.date||TODAY,created:TODAY,move:x.movein||'',note:note,action:actionLine(x,parsed)||x.action||'',owner:null,closed:false,history:[],recSigs:[key],recCount:1,category:x.cat||''};
     pushHist(c,'통화녹음 자동입력(신규 · 통화 1번째)');
     custs.push(c);
     return {kind:'신규 등록',name:c.name,id:c.id,time:parsed.hm};
