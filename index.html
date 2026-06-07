@@ -187,7 +187,8 @@
   .pcard .mv{display:flex;gap:6px;margin-top:8px}
   .pcard .mv button{flex:1;font-size:11px;padding:4px 0;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--ink-soft)}
   .pcard .mv button:hover{border-color:var(--brand);color:var(--brand)}
-  .pcard .pmv button{font-size:14px;font-weight:600;padding:9px 0;border-radius:8px}
+  .pcard .pmv button{font-size:11px;font-weight:600;padding:3px 0;border-radius:7px}
+  .pcard .pmv .bi{font-size:17px;line-height:1;vertical-align:-2px;margin-right:2px}
   .pcard .pmv [data-sms]{background:#eef4ff;border-color:#b9cdf2;color:#2f5fb3}
   .pcard .pmv [data-alim]{background:#fef3d9;border-color:#e8d28f;color:#9a7b1e}
   .pcol.over{background:var(--brand-soft)}
@@ -257,7 +258,8 @@
     header .who .nm{display:none}
     header #hdr-clock{display:none}
     header .hbtn{padding:7px 9px}
-    .pcard .pmv button{font-size:12.5px;padding:7px 0}
+    .pcard .pmv button{font-size:10.5px;padding:3px 0}
+    .pcard .pmv .bi{font-size:15px}
     main{padding:14px 14px calc(78px + var(--safe-b))}
     .kpis{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
     .kpi{padding:13px 14px}
@@ -1406,9 +1408,9 @@ function renderPipe(){
           ${(c.fund||c.timeline||leadHot(c))?`<div class="dt">${c.fund?'💳 '+esc(c.fund):''}${c.timeline?((c.fund?' · ':'')+esc(c.timeline)):''}${leadHot(c)?' · <span style="color:var(--accent);font-weight:700">🔥진성</span>':''}</div>`:''}
           ${needTags(c).length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}</div>`:''}
           ${c.note?`<div class="dt" style="color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.note)}">📝 ${esc(noteBrief(c.note))}</div>`:''}
-          <div class="mv pmv">${isC?`<button data-reopen="${c.id}">↩ 재개</button>`:`<button data-mv="${c.id}" data-dir="-1" ${s===1?'disabled style=opacity:.3':''}>◀ 이전</button>${s===5?`<button data-close="${c.id}">🔚 종료</button>`:`<button data-mv="${c.id}" data-dir="1">다음 ▶</button>`}`}</div>
-          <div class="mv pmv" style="margin-top:5px"><button data-ord="${c.id}" data-od="-1" ${i===0?'disabled style=opacity:.3':''}>▲ 위로</button><button data-ord="${c.id}" data-od="1" ${i===items.length-1?'disabled style=opacity:.3':''}>▼ 아래</button></div>
-          <div class="mv pmv" style="margin-top:5px"><button data-sms="${c.id}" onclick="event.stopPropagation()">✉️ 문자</button><button data-alim="${c.id}" onclick="event.stopPropagation()">💬 알림톡</button></div>
+          <div class="mv pmv">${isC?`<button data-reopen="${c.id}"><span class="bi">↩</span>재개</button>`:`<button data-mv="${c.id}" data-dir="-1" ${s===1?'disabled style=opacity:.3':''}><span class="bi">◀</span>이전</button>${s===5?`<button data-close="${c.id}"><span class="bi">🔚</span>종료</button>`:`<button data-mv="${c.id}" data-dir="1">다음<span class="bi" style="margin:0 0 0 2px">▶</span></button>`}`}</div>
+          <div class="mv pmv" style="margin-top:4px"><button data-ord="${c.id}" data-od="-1" ${i===0?'disabled style=opacity:.3':''}><span class="bi">▲</span>위로</button><button data-ord="${c.id}" data-od="1" ${i===items.length-1?'disabled style=opacity:.3':''}><span class="bi">▼</span>아래</button></div>
+          <div class="mv pmv" style="margin-top:4px"><button data-sms="${c.id}" onclick="event.stopPropagation()"><span class="bi">✉️</span>문자</button><button data-alim="${c.id}" onclick="event.stopPropagation()"><span class="bi">💬</span>알림톡</button></div>
         </div>`).join('')||'<div style="font-size:12px;color:var(--ink-soft);text-align:center;padding:14px 0">비어있음</div>'}</div>
     </div>`;
   }).join('');
