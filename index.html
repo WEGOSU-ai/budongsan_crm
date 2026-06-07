@@ -716,7 +716,10 @@ let propPriceF='all', propStatusF='all', propKindF='all', propTypeF='all';
 let pipeFilter='all';
 let matchSrc={q:'',type:'all',kind:'all'};
 let dashType='all', dashSort='desc', dashTaskQ='';
-let propSort={key:'reg',dir:'desc'}, custSort={key:'inq',dir:'desc'}, showDoneTasks=false, pipeStage=1, srcSort={key:'name',dir:'asc'};
+let propSort={key:'reg',dir:'desc'}, custSort={key:'rec',dir:'desc'}, showDoneTasks=false, pipeStage=1, srcSort={key:'name',dir:'asc'};
+/* 고객의 가장 최근 통화시각(recSigs의 전화@YYYYMMDDHHMMSS에서 추출) — 최신 녹음순 정렬용 */
+function lastRecTs(c){ var m=''; (c.recSigs||[]).forEach(function(s){ var t=String(s).split('@')[1]||''; if(t>m)m=t; }); return m; }
+function fmtRecTs(t){ t=String(t||''); return t.length>=12 ? (t.slice(0,4)+'.'+t.slice(4,6)+'.'+t.slice(6,8)+' '+t.slice(8,10)+':'+t.slice(10,12)) : (t.length>=8 ? t.slice(0,4)+'.'+t.slice(4,6)+'.'+t.slice(6,8) : ''); }
 function cmpVal(x,y){ if(typeof x==='number'&&typeof y==='number') return x-y; x=String(x==null?'':x); y=String(y==null?'':y); return x<y?-1:x>y?1:0; }
 function applySort(data,s,getters){ const g=getters[s.key]; if(!g) return data; const a=[...data].sort((p,q)=>cmpVal(g(p),g(q))); if(s.dir==='desc') a.reverse(); return a; }
 let lastMatch=null, maskOn=false;
@@ -1348,20 +1351,20 @@ function renderCusts(){
   if(q) data=data.filter(c=>
     (c.name||'').includes(q)||(c.area||'').includes(q)||(c.note||'').includes(q)||(c.phone||'').includes(q)||
     (qd.length>=2 && digits(c.phone).includes(qd)));
-  const CG={inq:c=>custInqDate(c)||'',name:c=>c.name||'',stage:c=>+c.stage||0,type:c=>TYPE[c.type]||'',area:c=>c.area||'',min:c=>+c.min||0,size:c=>+c.size||0,move:c=>c.move||''};
+  const CG={rec:c=>lastRecTs(c),inq:c=>custInqDate(c)||'',name:c=>c.name||'',stage:c=>+c.stage||0,type:c=>TYPE[c.type]||'',area:c=>c.area||'',min:c=>+c.min||0,size:c=>+c.size||0,move:c=>c.move||''};
   data=applySort(data,custSort,CG); renderCustSort();
   $('#cust-list').innerHTML=data.map((c,i)=>`
     <div class="row" data-cid="${c.id}">
       <span class="idx">${i+1}</span>
       <div class="main">
-        <div class="title">${typeTag(c.type,c.side)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(dispName(c))}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span>${c.recCount?` <span class="tag" style="background:#e9f0ff;color:#2f5fb3" title="이 번호로 녹음 통화 ${c.recCount}건이 이 고객에 누적됨">🎤 통화 ${c.recCount}</span>`:''}${c.category?` <span class="tag" style="background:#f0e9dd;color:#7a6a4f">${esc(c.category)}</span>`:''}</div>
+        <div class="title">${typeTag(c.type,c.side)} ${stageTag(c.stage)} <span style="${c.closed?'text-decoration:line-through;color:var(--ink-soft)':''}">${mname(dispName(c))}</span>${c.closed?' <span class="tag" style="background:#eceae4;color:#8a8578">🔚 종료·'+(CSTAGE[c.stageAtClose||c.stage]||'')+'</span>':''} <span style="font-weight:400;color:var(--ink-soft);font-size:12.5px">${mphone(c.phone)}</span>${c.recCount?` <span class="tag" style="background:#e9f0ff;color:#2f5fb3" title="이 번호로 녹음 통화 ${c.recCount}건이 이 고객에 누적됨">🎤 통화 ${c.recCount}${lastRecTs(c)?' · '+fmtRecTs(lastRecTs(c)):''}</span>`:''}${c.category?` <span class="tag" style="background:#f0e9dd;color:#7a6a4f">${esc(c.category)}</span>`:''}</div>
         <div class="meta">${esc(c.area)} · 희망 ${c.size}㎡ · ${custBudget(c)} · 입주희망 ${fmtD(c.move)||'-'}${c.fund?' · '+esc(c.fund):''}${c.timeline?' · '+esc(c.timeline):''}${c.action?' · <b style="color:var(--brand)">▶ '+esc(c.action)+'</b>':''}${c.note?' · '+esc(c.note):''}</div>${(needTags(c).length||leadHot(c))?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${needTags(c).map(t=>'<span class="need">'+t+'</span>').join('')}${leadHot(c)?'<span class="lead">🔥 진성</span>':''}</div>`:''}
       </div><div style="text-align:right;display:flex;flex-direction:column;gap:5px;align-items:flex-end">${digits(c.phone)?`<a class="pbtn" href="tel:${digits(c.phone)}" onclick="event.stopPropagation()" title="전화 걸기" style="text-decoration:none">📞 통화</a>`:''}<button class="pbtn" data-cclose="${c.id}" onclick="event.stopPropagation()" title="안내 종료/재개">${c.closed?'↩ 재개':'🔚 종료'}</button><div class="edit-hint">✎ 수정</div></div></div>`).join('')||'<div class="empty"><div class="ic">🔍</div>조건에 맞는 고객이 없습니다.</div>';
   $$('#cust-list .row').forEach(r=>r.onclick=()=>fillCust(custs.find(x=>x.id===+r.dataset.cid)));
   $$('#cust-list [data-cclose]').forEach(b=>b.onclick=ev=>{ev.stopPropagation(); const c=custs.find(x=>x.id===+b.dataset.cclose); if(!c.closed){ c.closed=true; c.stageAtClose=c.stage; pushHist(c,'안내 종료 ('+(CSTAGE[c.stage]||'')+' 단계에서)'); } else { c.closed=false; pushHist(c,'안내 재개'); } renderAll();});
 }
 function renderCustSort(){
-  const keys=[['inq','문의일'],['name','이름'],['stage','단계'],['type','거래'],['area','지역'],['min','예산'],['size','평형'],['move','입주일']];
+  const keys=[['rec','최근통화'],['inq','문의일'],['name','이름'],['stage','단계'],['type','거래'],['area','지역'],['min','예산'],['size','평형'],['move','입주일']];
   const box=$('#cust-sort'); if(!box)return;
   box.innerHTML='<span style="font-size:11px;color:var(--ink-soft);margin-right:2px">정렬</span>'+keys.map(k=>`<button class="fchip ${custSort.key===k[0]?'on':''}" data-cs="${k[0]}">${k[1]}${custSort.key===k[0]?(custSort.dir==='asc'?' ↑':' ↓'):''}</button>`).join('');
   $$('#cust-sort [data-cs]').forEach(b=>b.onclick=()=>{ const k=b.dataset.cs; if(custSort.key===k) custSort.dir=custSort.dir==='asc'?'desc':'asc'; else { custSort.key=k; custSort.dir='asc'; } renderCusts(); });
