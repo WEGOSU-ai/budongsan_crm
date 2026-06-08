@@ -479,12 +479,13 @@
 
   <section class="view" id="v-recad">
     <div class="sec-h"><div><h2>통화업로드</h2><div class="sub">녹음 파일을 끌어다 놓거나 선택하면, 여러 개를 한 번에 분석해 고객명단에 자동 등록합니다. (PC에서 변환 서버 실행 필요)</div></div></div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-      <span style="font-size:12px;color:var(--ink-soft)">변환 방식</span>
-      <button class="fchip on" id="eng-local" data-eng="local">🆓 무료(로컬 whisper)</button>
-      <button class="fchip" id="eng-rtzr" data-eng="rtzr">💳 유료(리턴제로 정밀·화자분리)</button>
-      <span id="eng-note" style="font-size:11.5px;color:var(--ink-soft)">· 유료는 통화 길이만큼 과금됩니다(최초 10시간 무료, 이후 시간당 1,000원).</span>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <span style="font-size:12px;color:var(--ink-soft)">처리 모드</span>
+      <button class="fchip on" id="mode-free" data-mode="free">🆓 무료(로컬·외부전송 없음)</button>
+      <button class="fchip" id="mode-fast" data-mode="fast">⚡ 빠른 유료(Groq+Gemini Flash-Lite)</button>
+      <button class="fchip" id="mode-premium" data-mode="premium">💎 정밀 유료(리턴제로+Gemini Flash)</button>
     </div>
+    <div id="mode-note" style="font-size:11.5px;color:var(--ink-soft);margin:0 2px 12px"></div>
     <div id="rec-drop" style="border:2px dashed #cbb89a;border-radius:14px;background:#faf7f0;padding:34px 20px;text-align:center;cursor:pointer;transition:.15s">
       <div style="font-size:34px;margin-bottom:8px">🎤</div>
       <div style="font-weight:700;font-size:15px;margin-bottom:4px">여기로 통화녹음 파일을 끌어다 놓으세요</div>
@@ -2250,7 +2251,7 @@ if(sbc) cloudInitSync();
       var _nm=[p.name,p.phone,_tag].filter(Boolean).join('_');
       setEmpty('c-name',_nm||p.name);
       if(msg){msg.textContent='파일명 분석: '+(p.name||'-')+' / '+(p.phone||'-')+' / '+(p.date||'-')+' · 음성 분석 중…';}
-      var fd=new FormData();fd.append('audio',file);fd.append('engine',(window.RECAD_ENGINE||'local'));
+      var fd=new FormData();fd.append('audio',file);fd.append('mode',(window.RECAD_MODE||'free'));
       fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
         if(!j||!j.ok){if(msg){msg.textContent='변환 실패: '+((j&&j.message)||'서버 오류')+' (파일명 입력은 완료)';}return;}
         var x=j.fields||{};
@@ -2270,17 +2271,22 @@ if(sbc) cloudInitSync();
 })();
 </script>
 <script>
-/* 통화업로드: 무료(local) / 유료(rtzr) 변환방식 선택 토글 */
+/* 통화업로드: 3가지 처리 모드 선택 토글 (free/fast/premium) */
 (function(){
-  window.RECAD_ENGINE=window.RECAD_ENGINE||'local';
-  function bindEng(){
-    var bl=document.getElementById('eng-local'), br=document.getElementById('eng-rtzr');
-    if(!bl||!br)return;
-    function set(eng){ window.RECAD_ENGINE=eng; bl.classList.toggle('on',eng==='local'); br.classList.toggle('on',eng==='rtzr'); }
-    bl.onclick=function(){set('local');}; br.onclick=function(){set('rtzr');};
-    set(window.RECAD_ENGINE);
+  window.RECAD_MODE=window.RECAD_MODE||'free';
+  var NOTE={
+    free:'음성·텍스트가 PC를 벗어나지 않습니다(외부 전송 없음). 결과만 매칭홈 클라우드에 저장 — 가장 안전.',
+    fast:'음성은 Groq, 텍스트는 Google Gemini로 전송돼 처리됩니다. 빠르고 저렴(Groq 일 2,000건 무료).',
+    premium:'음성은 리턴제로(화자분리), 텍스트는 Google Gemini Flash로 전송. 가장 정밀(RTZR 10시간 무료).'
+  };
+  function bindMode(){
+    var keys=['free','fast','premium'], note=document.getElementById('mode-note');
+    if(!document.getElementById('mode-free'))return;
+    function set(m){ window.RECAD_MODE=m; keys.forEach(function(k){var b=document.getElementById('mode-'+k); if(b)b.classList.toggle('on',k===m);}); if(note)note.textContent='· '+NOTE[m]; }
+    keys.forEach(function(k){ var b=document.getElementById('mode-'+k); if(b)b.onclick=function(){set(k);}; });
+    set(window.RECAD_MODE);
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindEng);else bindEng();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindMode);else bindMode();
 })();
 </script>
 <script>
