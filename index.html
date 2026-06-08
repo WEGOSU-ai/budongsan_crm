@@ -480,10 +480,18 @@
   <section class="view" id="v-recad">
     <div class="sec-h"><div><h2>통화업로드</h2><div class="sub">녹음 파일을 끌어다 놓거나 선택하면, 여러 개를 한 번에 분석해 고객명단에 자동 등록합니다. (PC에서 변환 서버 실행 필요)</div></div></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
-      <span style="font-size:12px;color:var(--ink-soft)">처리 모드</span>
-      <button class="fchip on" id="mode-free" data-mode="free">🆓 무료(로컬·외부전송 없음)</button>
-      <button class="fchip" id="mode-fast" data-mode="fast">⚡ 빠른 유료(Groq+Gemini Flash-Lite)</button>
-      <button class="fchip" id="mode-premium" data-mode="premium">💎 정밀 유료(리턴제로+Gemini Flash)</button>
+      <span style="font-size:12px;color:var(--ink-soft);min-width:62px">전사(STT)</span>
+      <button class="fchip" id="stt-local" data-stt="local">🆓 로컬 whisper(무료·외부전송 0)</button>
+      <button class="fchip on" id="stt-groq" data-stt="groq">⚡ Groq(초고속·일 2천건 무료)</button>
+      <button class="fchip" id="stt-rtzr" data-stt="rtzr">💎 리턴제로(화자분리·유료)</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <span style="font-size:12px;color:var(--ink-soft);min-width:62px">요약(LLM)</span>
+      <button class="fchip" id="llm-eeve" data-llm="eeve">🆓 EEVE(로컬·한국어)</button>
+      <button class="fchip" id="llm-groq" data-llm="groq">⚡ Groq(Llama·초고속)</button>
+      <button class="fchip on" id="llm-flash-lite" data-llm="flash-lite">✨ 2.5 Flash-Lite</button>
+      <button class="fchip" id="llm-flash" data-llm="flash">💠 2.5 Flash</button>
+      <button class="fchip" id="llm-flash35" data-llm="flash35">💎 3.5 Flash</button>
     </div>
     <div id="mode-note" style="font-size:11.5px;color:var(--ink-soft);margin:0 2px 12px"></div>
     <div id="rec-drop" style="border:2px dashed #cbb89a;border-radius:14px;background:#faf7f0;padding:34px 20px;text-align:center;cursor:pointer;transition:.15s">
@@ -2251,7 +2259,7 @@ if(sbc) cloudInitSync();
       var _nm=[p.name,p.phone,_tag].filter(Boolean).join('_');
       setEmpty('c-name',_nm||p.name);
       if(msg){msg.textContent='파일명 분석: '+(p.name||'-')+' / '+(p.phone||'-')+' / '+(p.date||'-')+' · 음성 분석 중…';}
-      var fd=new FormData();fd.append('audio',file);fd.append('mode',(window.RECAD_MODE||'free'));
+      var fd=new FormData();fd.append('audio',file);fd.append('stt',(window.RECAD_STT||'groq'));fd.append('llm',(window.RECAD_LLM||'flash-lite'));
       fetch(STT_URL,{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(j){
         if(!j||!j.ok){if(msg){msg.textContent='변환 실패: '+((j&&j.message)||'서버 오류')+' (파일명 입력은 완료)';}return;}
         var x=j.fields||{};
@@ -2271,22 +2279,28 @@ if(sbc) cloudInitSync();
 })();
 </script>
 <script>
-/* 통화업로드: 3가지 처리 모드 선택 토글 (free/fast/premium) */
+/* 통화업로드: 전사(STT) + 요약(LLM) 따로 선택 — 직접 성능·비용 비교 */
 (function(){
-  window.RECAD_MODE=window.RECAD_MODE||'free';
+  window.RECAD_STT=window.RECAD_STT||'groq';
+  window.RECAD_LLM=window.RECAD_LLM||'flash-lite';
+  var STT={local:['local','rtzr','groq'],ks:['local','groq','rtzr']};
+  var LLMS=['eeve','groq','flash-lite','flash','flash35'];
   var NOTE={
-    free:'음성·텍스트가 PC를 벗어나지 않습니다(외부 전송 없음). 결과만 매칭홈 클라우드에 저장 — 가장 안전.',
-    fast:'음성은 Groq, 텍스트는 Google Gemini로 전송돼 처리됩니다. 빠르고 저렴(Groq 일 2,000건 무료).',
-    premium:'음성은 리턴제로(화자분리), 텍스트는 Google Gemini Flash로 전송. 가장 정밀(RTZR 10시간 무료).'
+    eeve:'요약 EEVE(로컬·한국어 특화). 통화당 ≈0원. 텍스트가 PC를 안 떠남.',
+    groq:'요약 Groq(Llama 3.3 70B·초고속). 통화당 ≈7원(무료한도 내 0원). 학습 미사용.',
+    'flash-lite':'요약 Gemini 2.5 Flash-Lite. 통화당 ≈2원. 빠르고 저렴(유료등급=학습 미사용).',
+    flash:'요약 Gemini 2.5 Flash. 통화당 ≈11원. 더 정확.',
+    flash35:'요약 Gemini 3.5 Flash. 통화당 ≈42~60원. 최고 성능·고비용.'
   };
-  function bindMode(){
-    var keys=['free','fast','premium'], note=document.getElementById('mode-note');
-    if(!document.getElementById('mode-free'))return;
-    function set(m){ window.RECAD_MODE=m; keys.forEach(function(k){var b=document.getElementById('mode-'+k); if(b)b.classList.toggle('on',k===m);}); if(note)note.textContent='· '+NOTE[m]; }
-    keys.forEach(function(k){ var b=document.getElementById('mode-'+k); if(b)b.onclick=function(){set(k);}; });
-    set(window.RECAD_MODE);
+  function bind(){
+    if(!document.getElementById('llm-flash-lite'))return;
+    function setStt(v){ window.RECAD_STT=v; ['local','groq','rtzr'].forEach(function(k){var b=document.getElementById('stt-'+k); if(b)b.classList.toggle('on',k===v);}); }
+    function setLlm(v){ window.RECAD_LLM=v; LLMS.forEach(function(k){var b=document.getElementById('llm-'+k); if(b)b.classList.toggle('on',k===v);}); var n=document.getElementById('mode-note'); if(n)n.textContent='· '+(NOTE[v]||''); }
+    ['local','groq','rtzr'].forEach(function(k){ var b=document.getElementById('stt-'+k); if(b)b.onclick=function(){setStt(k);}; });
+    LLMS.forEach(function(k){ var b=document.getElementById('llm-'+k); if(b)b.onclick=function(){setLlm(k);}; });
+    setStt(window.RECAD_STT); setLlm(window.RECAD_LLM);
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bindMode);else bindMode();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
 </script>
 <script>
