@@ -488,7 +488,9 @@
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
       <span style="font-size:12px;color:var(--ink-soft);min-width:62px">요약(LLM)</span>
       <button class="fchip" id="llm-eeve" data-llm="eeve">🆓 EEVE(로컬·한국어)</button>
-      <button class="fchip" id="llm-groq" data-llm="groq">⚡ Groq(Llama·초고속)</button>
+      <button class="fchip" id="llm-groq" data-llm="groq">⚡ Groq Llama(70B)</button>
+      <button class="fchip" id="llm-groq-qwen" data-llm="groq-qwen">🇰🇷 Groq Qwen(한국어)</button>
+      <button class="fchip" id="llm-groq-oss" data-llm="groq-oss">🚀 Groq GPT-OSS(초고속)</button>
       <button class="fchip on" id="llm-flash-lite" data-llm="flash-lite">✨ 2.5 Flash-Lite</button>
       <button class="fchip" id="llm-flash" data-llm="flash">💠 2.5 Flash</button>
       <button class="fchip" id="llm-flash35" data-llm="flash35">💎 3.5 Flash</button>
@@ -2284,10 +2286,12 @@ if(sbc) cloudInitSync();
   window.RECAD_STT=window.RECAD_STT||'groq';
   window.RECAD_LLM=window.RECAD_LLM||'flash-lite';
   var STT={local:['local','rtzr','groq'],ks:['local','groq','rtzr']};
-  var LLMS=['eeve','groq','flash-lite','flash','flash35'];
+  var LLMS=['eeve','groq','groq-qwen','groq-oss','flash-lite','flash','flash35'];
   var NOTE={
     eeve:'요약 EEVE(로컬·한국어 특화). 통화당 ≈0원. 텍스트가 PC를 안 떠남.',
     groq:'요약 Groq(Llama 3.3 70B·초고속). 통화당 ≈7원(무료한도 내 0원). 학습 미사용.',
+    'groq-qwen':'요약 Groq(Qwen3 32B·한국어 강함). 무료한도 내 0원. 추론형이라 가끔 느림. 학습 미사용.',
+    'groq-oss':'요약 Groq(GPT-OSS 20B·가장 빠름 1000t/s). 무료한도 내 0원. 학습 미사용.',
     'flash-lite':'요약 Gemini 2.5 Flash-Lite. 통화당 ≈2원. 빠르고 저렴(유료등급=학습 미사용).',
     flash:'요약 Gemini 2.5 Flash. 통화당 ≈11원. 더 정확.',
     flash35:'요약 Gemini 3.5 Flash. 통화당 ≈42~60원. 최고 성능·고비용.'
